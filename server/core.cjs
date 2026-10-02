@@ -185,7 +185,7 @@ async function avatar(dirs,name){
 }
 function parseChat(raw) {
     const messages = [];
-    let skipped = 0;
+    let skipped = 0, metadata = {};
     const lines = raw.split('\n');
     for (let i=0;i<lines.length;i++) {
         if (!lines[i].trim()) continue;
@@ -193,13 +193,14 @@ function parseChat(raw) {
         let m;
         try { m = JSON.parse(lines[i]); }
         catch { if (i === lines.length-1) continue; skipped++; continue; }
-        if (!m || typeof m.mes !== 'string') continue;
+        if (!m || typeof m.mes !== 'string') {if(m?.chat_metadata)metadata=m.chat_metadata;continue;}
         if(messages.length>=100000)throw fail(413,'메시지 수가 현재 지원 범위를 넘습니다.');
         // mes is the persisted current swipe, including subsequent manual edits.
         const extras=translations(m);
-        messages.push({index:messages.length,name:String(m.name || (m.is_user ? '나':'캐릭터')),user:!!m.is_user,system:!!m.is_system,text:m.mes,displayText:typeof m.extra?.display_text === 'string' ? m.extra.display_text : null,translations:extras,sourceHash:messageHash(m),date:String(m.send_date || '')});
+        messages.push({index:messages.length,originalAvatar:typeof m.original_avatar==='string'?m.original_avatar:null,placement:m.is_user?1:m.extra?.type==='narrator'?3:2,name:String(m.name || (m.is_user ? '나':'캐릭터')),user:!!m.is_user,system:!!m.is_system,text:m.mes,displayText:typeof m.extra?.display_text === 'string' ? m.extra.display_text : null,translations:extras,sourceHash:messageHash(m),date:String(m.send_date || '')});
     }
-    return {messages,skipped};
+    let depth=0;for(let i=messages.length-1;i>=0;i--){messages[i].depth=depth;if(!messages[i].system)depth++;}
+    return {messages,skipped,metadata};
 }
 const queues = new Map();
 function serialized(key, fn) {

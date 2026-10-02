@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
-const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs');
-const BASE='/api/plugins/sili-library',VERSION='0.3.2-test.1';
+const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs');
+const BASE='/api/plugins/sili-library',VERSION='0.4.0-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -40,7 +40,7 @@ async function init(router){
         next();
     }));
     router.get('/',(req,res)=>req.originalUrl.split('?')[0].endsWith('/')?res.sendFile(path.join(__dirname,'public/index.html')):res.redirect(BASE+'/'));
-    for(const name of ['app.js','rich.js','style.css','icon.svg','vendor/purify.min.js'])router.get('/'+name,(req,res)=>res.sendFile(path.join(__dirname,'public',name)));
+    for(const name of ['app.js','rich.js','style.css','icon.svg','vendor/purify.min.js','vendor/showdown.min.js'])router.get('/'+name,(req,res)=>res.sendFile(path.join(__dirname,'public',name)));
     router.get('/status',wrap(async(req,res)=>{
         statusRate(req.socket.remoteAddress);
         const conf=await c.authConfig(req.user.directories.root);
@@ -81,22 +81,21 @@ async function init(router){
         const result=await heavyRead(async()=>{
             const file=await c.chatFile(req.user.directories,req.query.id),stat=await fs.stat(file);
             if(stat.size>32*1024*1024)throw c.fail(413,'32MB를 넘는 대화는 현재 버전에서 열 수 없습니다.');
-            const revision=['screen-2',stat.ino,stat.mtimeMs,stat.ctimeMs,stat.size,await capture.revision(req.user.directories.root,req.query.id)].join(':');
+            const context=await display.load(req.user.directories,req.query.id);
+            const revision=['saved-display-1',stat.ino,stat.mtimeMs,stat.ctimeMs,stat.size,context.revision].join(':');
             if(req.query.revision===revision)return {unchanged:true,revision};
             const parsed=c.parseChat(await c.readText(file,32*1024*1024));
-            const rendered=await capture.read(req.user.directories.root,req.query.id);
             const saved=await c.position(req.user.directories.root,req.query.id);
             const requested=req.query.start===undefined?(saved?.index||0):Number(req.query.start);
             if(!Number.isSafeInteger(requested)||requested<0)throw c.fail(400,'잘못된 페이지입니다.');
             const start=Math.min(requested,Math.max(0,parsed.messages.length-1));
             const messages=[];let size=0;
-            for(const m of parsed.messages.slice(start,start+30)){
-                const view=capture.screenMessage(m,rendered[m.index]);
+            for(const view of await display.render(parsed.messages.slice(start,start+30),context,parsed.metadata)){
                 const bytes=Buffer.byteLength(JSON.stringify(view));
                 if(messages.length&&size+bytes>2*1024*1024)break;
                 messages.push(view);size+=bytes;
             }
-            return {displayPolicy:'screen-only-v2',revision,start,total:parsed.messages.length,messages,nextStart:start+messages.length,skipped:parsed.skipped,saved};
+            return {displayPolicy:'saved-display-v1',revision,start,total:parsed.messages.length,messages,nextStart:start+messages.length,skipped:parsed.skipped,saved};
         });
         res.json(result);
     }));

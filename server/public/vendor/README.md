@@ -6,4 +6,4 @@
 Sources: https://github.com/cure53/DOMPurify and https://github.com/showdownjs/showdown.
 Downloaded from the npm registry, bundled locally; no runtime CDN requests.
 Full upstream licenses are included alongside the JavaScript files.
-0.3.1 uses DOMPurify only for final-screen HTML. Showdown is retained as an unused 0.3.0 dependency; it is not loaded by the reader. Untrusted HTML is isolated in a script-disabled iframe.
+0.4.0 uses Showdown for Markdown and DOMPurify for the resulting HTML. Both are bundled locally. Untrusted HTML stays in a script-disabled iframe.

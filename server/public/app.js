@@ -131,7 +131,7 @@ async function catalog(){
     renderLists();return true;
 }
 function renderChat(data,pos){
-    if(data.displayPolicy!=='screen-only-v2')throw new Error('서버 플러그인과 화면 버전이 달라요. 서버를 업데이트한 뒤 재시작해 주세요.');
+    if(data.displayPolicy!=='saved-display-v1')throw new Error('서버 플러그인과 화면 버전이 달라요. 서버를 업데이트한 뒤 재시작해 주세요.');
     scroller.querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
     revision=data.revision;start=data.start;total=data.total;BookshopRich.clear(scroller);scroller.replaceChildren();
     if(start>0){const b=node('button','page-button','이전 대화 읽기 ↑');b.onclick=()=>page(Math.max(0,start-30));scroller.append(b);}
@@ -142,14 +142,17 @@ function renderChat(data,pos){
         if(!m.user&&!m.system)by.append(avatar(m.name,meta?.avatar,'avatar message-avatar'));
         by.append(node('span','',m.name),node('small','',m.system?'시스템 · '+m.date:m.date));
         const bubble=node('div','bubble');item.append(by,bubble);scroller.append(item);
-        if(m.synced&&typeof m.renderedHtml==='string'){
+        if(typeof m.content==='string'){
             const content=node('div','message-content');bubble.append(content);
-            if(m.renderedHtml.trim()){
-                try{output(content,m.renderedHtml,true);}catch{content.textContent='이 메시지의 화면을 표시하지 못했어요. 새로고침하거나 실리에서 다시 연동해 주세요.';}
-            }else content.append(node('p','notice','실리에서 숨겨진 메시지예요.'));
+            if(m.content.trim())output(content,m.content);
+            else content.append(node('p','notice','표시할 내용이 없는 메시지예요.'));
+            for(const entry of m.translations||[]){
+                const details=node('details','stored-translation'),summary=node('summary','',entry.label||'저장된 번역'),body=node('div','message-content');
+                details.append(summary,body);bubble.append(details);output(body,entry.content);
+            }
         }else{
-            bubble.classList.add('awaiting');bubble.append(node('p','','실리 화면 연동 대기'));
-            bubble.append(node('small','','실리에서 이 대화를 열고 메시지를 불러오면 자동으로 표시돼요. 숨긴 내용이 나오지 않도록 원문은 대신 표시하지 않아요.'));
+            bubble.classList.add('awaiting');bubble.append(node('p','','이 메시지의 표시 설정을 확인해 주세요.'));
+            bubble.append(node('small','',m.error||'메시지를 안전하게 처리하지 못했어요. 새로고침해 주세요.'));
         }
 
     }
@@ -159,8 +162,8 @@ function renderChat(data,pos){
     $('latest').hidden=!total;
     lastPosition=pos||data.saved;
     restore(lastPosition);
-    const pending=data.messages.filter(m=>!m.synced).length;
-    status(pending?'현재 페이지 '+pending+'개 화면 연동 대기 · 실리에서 대화를 열어 주세요.':'실리 화면 연동 중 · '+total.toLocaleString()+'개 메시지');
+    const blocked=data.messages.filter(m=>m.error).length;
+    status(blocked?'현재 페이지 '+blocked+'개 표시 설정 확인 필요':'자동 업데이트 중 · '+total.toLocaleString()+'개 메시지');
 }
 async function openChat(id,requestedStart){
     const saving=save(),ticket=++epoch;loading=true;
@@ -215,5 +218,5 @@ scroller.addEventListener('scroll',()=>{if(restoring||loading||!active)return;sc
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save(true);else if(unlocked){if(active&&!scrollDirty)openChat(active);else poll();}});
 window.addEventListener('pagehide',()=>save(true));
 setInterval(()=>{if(unlocked&&!document.hidden)catalog().catch(e=>status(e.message));},30000);
-(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.3.2';if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}})();
+(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.4.0';if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}})();
 })();

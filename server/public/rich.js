@@ -16,8 +16,11 @@ window.BookshopRich=(()=>{
         if(data.attrName==='src'&&!/^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(data.attrValue))data.keepAttr=false;
         if(data.attrName==='style'){const style=document.createElement('span').style;style.cssText=data.attrValue;data.attrValue=cleanDeclarations(style);}
     });
-    function mount(host,text,{onResize=change=>change()}={}){
-        const safe=DOMPurify.sanitize(text,config);
+    const converter=new showdown.Converter({tables:true,strikethrough:true,simpleLineBreaks:true,ghCodeBlocks:true,backslashEscapesHTMLTags:true});
+    function mount(host,text,{onResize=change=>change(),rendered=false}={}){
+        // HTML output fenced by chat models is intended as a card, not executable code.
+        const source=rendered?text:String(text).replace(/^```(?:html|HTML)\s*\n([\s\S]*?)^```\s*$/gm,'$1');
+        const safe=DOMPurify.sanitize(rendered?source:converter.makeHtml(source),config);
         const frame=document.createElement('iframe');frame.className='rich-output';frame.title='메시지 HTML · 읽기 전용';
         // Same-origin lets only the parent measure height. No allow-scripts, navigation,
         // downloads, popups, forms, or external network access are granted.

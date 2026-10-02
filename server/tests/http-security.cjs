@@ -31,7 +31,7 @@ const catalog=await fetch(base+'/catalog',{headers:{Cookie:cookie}});assert.equa
 assert.equal((await fetch(base+'/catalog',{headers:{Cookie:cookie,'x-fixture-user':'b'}})).status,401);
 const otherHostStatus=await new Promise((resolve,reject)=>{require('node:http').get(base+'/catalog',{headers:{Cookie:cookie,Host:'other.invalid'}},res=>{res.resume();resolve(res.statusCode);}).on('error',reject);});assert.equal(otherHostStatus,401);
 assert.equal((await fetch(base+'/catalog',{headers:{Cookie:cookie,Origin:'https://evil.invalid'}})).status,403);
-const id=c.encode(['group','chat.jsonl']);const read=await fetch(base+'/chat?id='+id,{headers:{Cookie:cookie}});const data=await read.json();assert.equal(data.messages[0].synced,false);assert.ok(!JSON.stringify(data).includes('private-a'));assert.equal(data.displayPolicy,'screen-only-v2');
+const id=c.encode(['group','chat.jsonl']);const read=await fetch(base+'/chat?id='+id,{headers:{Cookie:cookie}});const data=await read.json();assert.equal(data.messages[0].content,'private-a');assert.equal(data.messages[0].text,undefined);assert.equal(data.displayPolicy,'saved-display-v1');
 assert.equal((await fetch(base+'/chat?id='+c.encode(['group','../auth.json']),{headers:{Cookie:cookie}})).status,400);
 assert.equal((await fetch(base+'/chat?id='+id+'&start=-1',{headers:{Cookie:cookie}})).status,400);
 const unchanged=await (await fetch(base+'/chat?id='+id+'&revision='+encodeURIComponent(data.revision),{headers:{Cookie:cookie}})).json();assert.equal(unchanged.unchanged,true);
