@@ -28,9 +28,9 @@ print('Public allowlist and secret-pattern scan passed:',len(files),'files')
 if '--check' in sys.argv:raise SystemExit(0)
 version=json.loads((root/'package.json').read_text())['version']
 dest=root/'dist';dest.mkdir(exist_ok=True)
-output=dest/('sili-bookshop-github-'+version+'.zip')
+output=dest/('silly-bookshop-github-'+version+'.zip')
 with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
-    for p in files:archive.write(p,'sili-bookshop/'+p.relative_to(root).as_posix())
+    for p in files:archive.write(p,'silly-bookshop/'+p.relative_to(root).as_posix())
 with zipfile.ZipFile(output) as archive:
     assert archive.testzip() is None
     assert not any(secret_name.fullmatch(Path(name).name) for name in archive.namelist())

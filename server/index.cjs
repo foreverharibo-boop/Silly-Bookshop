@@ -6,7 +6,7 @@ const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
     res.status(e.status||(e.code==='ENOENT'?404:500)).json({error:e.status?e.message:e.code==='ENOENT'?'파일을 찾을 수 없습니다.':'읽기에 실패했습니다. 실리 서버 로그를 확인해 주세요.'});
-    if(!e.status&&e.code!=='ENOENT')console.error('[sili-bookshop]',e.code||'internal-error');
+    if(!e.status&&e.code!=='ENOENT')console.error('[silly-bookshop]',e.code||'internal-error');
 });
 function cookieKey(req){
     const match=String(req.headers.cookie||'').match(/(?:^|;\s*)sili_library=([a-f0-9]{64})(?:;|$)/);

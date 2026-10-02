@@ -1,4 +1,4 @@
-# 실리 책방
+# 실리 책방 · Silly Bookshop
 
 **0.2.0-test.1 · 공개 배포 전 테스트 버전**
 
@@ -86,7 +86,7 @@ http://100.x.y.z:8000/api/plugins/sili-library/
 
 ```sh
 cd ~/SillyTavern
-mv plugins/sili-library "$HOME/sili-bookshop-plugin-backup-$(date +%Y%m%d-%H%M%S)"
+mv plugins/sili-library "$HOME/silly-bookshop-plugin-backup-$(date +%Y%m%d-%H%M%S)"
 read -r -p "책방 깃허브 저장소 주소: " SILI_REPO_URL
 git clone -- "$SILI_REPO_URL" plugins/sili-library
 ```
