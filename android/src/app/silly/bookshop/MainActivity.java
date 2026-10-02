@@ -1,4 +1,4 @@
-package app.sili.library;
+package app.silly.bookshop;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -24,7 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.net.URI;
 
 public final class MainActivity extends Activity {
-    private static final String LIBRARY = "/api/plugins/sili-library/";
+    private static final String LIBRARY = "/api/plugins/silly-bookshop/";
     private WebView web;
     private LinearLayout root;
     private volatile String server = "";
@@ -33,7 +33,7 @@ public final class MainActivity extends Activity {
     private int dp(int n) {return (int)(getResources().getDisplayMetrics().density*n+.5f);}
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
-        prefs=getSharedPreferences("sili-library",MODE_PRIVATE);
+        prefs=getSharedPreferences("silly-bookshop",MODE_PRIVATE);
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.WHITE);
         root.setOnApplyWindowInsetsListener((v,insets)->{
             if(Build.VERSION.SDK_INT>=30){android.graphics.Insets i=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.ime());v.setPadding(i.left,i.top,i.right,i.bottom);}

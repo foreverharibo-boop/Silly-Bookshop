@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs');
-const BASE='/api/plugins/sili-library',VERSION='0.4.1-test.1';
+const BASE='/api/plugins/silly-bookshop',VERSION='0.5.0-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -9,10 +9,10 @@ const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(!e.status&&e.code!=='ENOENT')console.error('[silly-bookshop]',e.code||'internal-error');
 });
 function cookieKey(req){
-    const match=String(req.headers.cookie||'').match(/(?:^|;\s*)sili_library=([a-f0-9]{64})(?:;|$)/);
+    const match=String(req.headers.cookie||'').match(/(?:^|;\s*)silly_bookshop=([a-f0-9]{64})(?:;|$)/);
     return match?crypto.createHash('sha256').update(match[1]).digest('hex'):'';
 }
-function setCookie(req,res,token,maxAge){res.cookie('sili_library',token,{httpOnly:true,sameSite:'strict',secure:req.secure,path:BASE,maxAge});}
+function setCookie(req,res,token,maxAge){res.cookie('silly_bookshop',token,{httpOnly:true,sameSite:'strict',secure:req.secure,path:BASE,maxAge});}
 async function init(router){
     const sessions=new Map();
     const loginIp=security.bucket(10,15*60000),loginUser=security.bucket(30,15*60000);
@@ -33,7 +33,7 @@ async function init(router){
         if(!['GET','HEAD','POST'].includes(req.method))throw c.fail(405,'지원하지 않는 요청입니다.');
         if(req.headers.origin&&!security.sameOrigin(req))throw c.fail(403,'같은 실리 주소에서 접속해 주세요.');
         if(req.method==='POST'){
-            if(!security.sameOrigin(req)||req.get('x-sili-request')!=='1'||!req.is('application/json'))throw c.fail(403,'책방 화면에서 다시 시도해 주세요.');
+            if(!security.sameOrigin(req)||req.get('x-silly-request')!=='1'||!req.is('application/json'))throw c.fail(403,'책방 화면에서 다시 시도해 주세요.');
             if(!req.body||Array.isArray(req.body)||typeof req.body!=='object')throw c.fail(400,'잘못된 요청입니다.');
             if(Buffer.byteLength(JSON.stringify(req.body))>(req.path==='/capture'?1024*1024:8192))throw c.fail(413,'요청이 너무 큽니다.');
         }
@@ -106,4 +106,4 @@ async function init(router){
     }));
     console.log('[실리 책방 '+VERSION+'] '+BASE+'/');
 }
-module.exports={init,info:{id:'sili-library',name:'실리 책방',description:'나만의 읽기 전용 채팅 책방'}};
+module.exports={init,info:{id:'silly-bookshop',name:'실리 책방',description:'나만의 읽기 전용 채팅 책방'}};

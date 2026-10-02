@@ -1,0 +1,19 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os');
+const migration=require('../migration.cjs'),c=require('../core.cjs');
+async function fixture(t){const root=await fs.mkdtemp(path.join(os.tmpdir(),'silly-migrate-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));await fs.writeFile(path.join(root,'config.yaml'),'enableServerPlugins: true\n');return root;}
+test('migration preserves Git, password and reading bytes, removes only own bridge and is repeatable',async t=>{
+ const root=await fixture(t),plugin=path.join(root,'plugins/sili-library'),profile=path.join(root,'data/default-user'),old=path.join(profile,'.sili-library'),extensions=path.join(root,'public/scripts/extensions/third-party');
+ await fs.mkdir(path.join(plugin,'.git'),{recursive:true});await fs.writeFile(path.join(plugin,'package.json'),'{"name":"silly-bookshop"}');await fs.writeFile(path.join(plugin,'.git','config'),'retained git configuration');
+ await fs.mkdir(old,{recursive:true});const auth=JSON.stringify({salt:'fixture',hash:await c.passwordHash('test-password','fixture')}),id=c.encode(['group','a.jsonl']),reading=JSON.stringify({[id]:{index:14,fraction:.4,updated:1}});await fs.writeFile(path.join(old,'auth.json'),auth);await fs.writeFile(path.join(old,'reading.json'),reading);
+ await fs.mkdir(path.join(extensions,'silly-bookshop-bridge'),{recursive:true});await fs.writeFile(path.join(extensions,'silly-bookshop-bridge','manifest.json'),'{"author":"Silly Bookshop"}');await fs.mkdir(path.join(extensions,'unrelated'));await fs.writeFile(path.join(extensions,'unrelated','index.js'),'untouched');
+ const result=await migration.install(plugin);assert.equal(result.migrated,1);assert.equal(result.bridge,true);assert.equal(await fs.readFile(path.join(result.target,'.git/config'),'utf8'),'retained git configuration');assert.equal(await fs.readFile(path.join(profile,'.silly-bookshop/auth.json'),'utf8'),auth);assert.equal(await fs.readFile(path.join(profile,'.silly-bookshop/reading.json'),'utf8'),reading);assert.equal((await c.position(profile,id)).index,14);assert.equal(await c.verifyPassword('test-password',await c.authConfig(profile)),true);assert.equal(await fs.readFile(path.join(extensions,'unrelated/index.js'),'utf8'),'untouched');assert.equal((await fs.readdir(path.join(root,'silly-bookshop-backups'))).length,1);
+ const again=await migration.install(result.target);assert.equal(again.migrated,0);assert.equal(again.bridge,false);await assert.rejects(()=>fs.stat(plugin),{code:'ENOENT'});
+});
+test('automatic custom-data migration is concurrent-safe and never overwrites two existing directories',async t=>{
+ const root=await fixture(t);await fs.mkdir(path.join(root,'.sili-library'));await fs.writeFile(path.join(root,'.sili-library/reading.json'),'{}');await Promise.all([c.stateDir(root),c.stateDir(root)]);assert.equal(await fs.readFile(path.join(root,'.silly-bookshop/reading.json'),'utf8'),'{}');await fs.mkdir(path.join(root,'.sili-library'));await assert.rejects(()=>c.stateDir(root),{status:409});assert.equal(await fs.readFile(path.join(root,'.silly-bookshop/reading.json'),'utf8'),'{}');
+});
+test('migration refuses unrelated extensions and existing destination without deleting them',async t=>{
+ const root=await fixture(t),ext=path.join(root,'public/scripts/extensions/third-party/silly-bookshop-bridge');await fs.mkdir(ext,{recursive:true});await fs.writeFile(path.join(ext,'manifest.json'),'{"author":"Someone Else"}');await assert.rejects(()=>migration.removeBridge(root));assert.ok(await fs.stat(ext));
+ const plugin=path.join(root,'plugins/sili-library');await fs.mkdir(plugin,{recursive:true});await fs.writeFile(path.join(plugin,'package.json'),'{"name":"silly-bookshop"}');await fs.mkdir(path.join(root,'plugins/silly-bookshop'));await assert.rejects(()=>migration.install(plugin));assert.ok(await fs.stat(plugin));
+});

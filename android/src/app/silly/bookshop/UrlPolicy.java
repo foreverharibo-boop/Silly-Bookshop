@@ -1,4 +1,4 @@
-package app.sili.library;
+package app.silly.bookshop;
 import java.net.URI;
 import java.util.Locale;
 
@@ -8,7 +8,7 @@ public final class UrlPolicy {
     public static String normalize(String value)throws Exception {
         URI u=new URI(value.trim());String scheme=u.getScheme(),host=u.getHost();
         if(host==null||u.getUserInfo()!=null||u.getRawAuthority().contains("%")||u.getQuery()!=null||u.getFragment()!=null||!("http".equals(scheme)||"https".equals(scheme)))throw new Exception("Invalid server URL");
-        if(u.getRawPath()!=null&&!u.getRawPath().isEmpty()&&!u.getRawPath().equals("/")&&!u.getRawPath().equals("/api/plugins/sili-library/"))throw new Exception("Use the base server address");
+        if(u.getRawPath()!=null&&!u.getRawPath().isEmpty()&&!u.getRawPath().equals("/")&&!u.getRawPath().equals("/api/plugins/silly-bookshop/"))throw new Exception("Use the base server address");
         host=host.toLowerCase(Locale.ROOT);
         if("http".equals(scheme)&&!privateHost(host))throw new Exception("HTTPS or tunnel required");
         if(u.getPort()>65535||u.getPort()==0||u.getRawAuthority().endsWith(":"))throw new Exception("Invalid port");

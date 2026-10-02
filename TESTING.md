@@ -1,16 +1,16 @@
 # 검증 기록 / 공개 전 남은 실기 테스트
 
-버전: **서버·웹 0.4.1-test.1 / 안내 확장 0.4.0-test.1 / APK 0.3.1-test.1**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
+버전: **서버·웹·APK 0.5.0-test.1 / 브라우저 확장 없음**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
 
 ## 자동 검사
 
-- Node 코어·보안 단위 테스트 **22개**: 경로 탈출, 정규화되지 않은 ID, 링크/특수 파일, 제한된 파일 읽기, 인증 파일 링크, 원본 불변, 동시 읽기 위치 저장, 계정별 저장 격리, 비밀번호, 네트워크/Origin 정책, 요청·동시작업 제한, 저장소 최상위 플러그인 로드.
+- Node 코어·보안 단위 테스트 **25개**: 경로 탈출, 정규화되지 않은 ID, 링크/특수 파일, 제한된 파일 읽기, 인증 파일 링크, 원본 불변, 동시 읽기 위치 저장, 계정별 저장 격리, 비밀번호, 네트워크/Origin 정책, 요청·동시작업 제한, 저장소 최상위 플러그인 로드.
 - HTTP 통합 테스트: 로그인 전/실리 계정 없음/설정 안 됨 차단, 정확한 Origin, 전용 헤더, 본문 크기, 쿠키 속성, CORS 제거, 다른 계정·다른 Host의 세션 재사용 차단, 경로/페이지 입력 검증, 원본 읽기, 위치 격리, 파일 크기 제한, 응답 크기별 페이지 이어읽기, 로그아웃, 30분 비활성 만료, X-Forwarded-For를 바꿔도 로그인 제한 유지.
 - 0.2.x에서 실행한 Chromium 웹 통합 테스트: PC 1280×900 / 모바일 390×844에서 로그인, 목록 접기, 새로고침 복원, 별도 기기의 위치 복원, 저장된 답변 수정 자동 반영, 표시문 전환, 최신 페이지, 글자 크기와 테마, 로그아웃 후 DOM 제거, 비밀번호 재설정에 따른 세션 무효화. 당시 버전의 텍스트 전용 출력 검증. 0.3.0에서는 아래 HTML 렌더링 검증으로 대체했습니다.
 - Android 순수 Java URL 정책 테스트: 허용/거부 주소, 포트, 유사 도메인, 사용자 정보가 들어간 URL, file/content/javascript 스킴, 평문 LAN 주소와 교차 Origin 차단.
 - APK 빌드, v2/v3 서명 검증, 기존 앱과 같은 서명 인증서, 앱 이름·패키지·버전·권한 확인.
 - 공개 ZIP 허용 목록·비밀 패턴·필수 파일·압축 무결성 검사.
-- 공개 ZIP을 새 임시 plugins/sili-library 폴더에 풀어 최상위 플러그인 로드, config.yaml 백업·단일 항목 변경, 기본 계정 경로의 setup.cjs 비밀번호 설정을 확인했습니다. 개인 서명 키/암호 원문이 ZIP 안에 없다는 직접 비교와, 가짜 auth.json이 섞이면 패키징이 실패하는 검사도 통과했습니다.
+- 공개 ZIP을 새 임시 plugins/silly-bookshop 폴더에 풀어 최상위 플러그인 로드, config.yaml 백업·단일 항목 변경, 기본 계정 경로의 setup.cjs 비밀번호 설정을 확인했습니다. 개인 서명 키/암호 원문이 ZIP 안에 없다는 직접 비교와, 가짜 auth.json이 섞이면 패키징이 실패하는 검사도 통과했습니다.
 
 실리 구조 참조: SillyTavern `06bde939fb1e9c4c8d8641d810f0a916b5bce127`의 plugin-loader, server-main, users, constants, chats 엔드포인트. HTTP/브라우저 검사는 실리의 사용자 디렉터리·CSRF 흐름을 흉내 낸 격리 Express 4 서버에서 수행했습니다. 실제 사용자의 실리 서버 내부에서 실행한 검사라는 뜻은 아닙니다.
 
@@ -61,6 +61,13 @@
 - 모든 개별 vendor 경로를 404로 차단해도 새 단일 묶음으로 Markdown·HTML 색상 표시 및 생각 태그 제외 확인. vendor 네트워크 요청 0개.
 - 잠금·새 페이지 재접속 확인. 실제 사용자 폰에서 어떤 파일이 로드되지 않았는지는 스크린샷만으로 특정하지 않았습니다.
 
+## 0.5.0 변경 검증
+
+- Node 25개 단위 항목. 이전 명령의 Git 설정·비밀번호 해시·읽던 위치 바이트 보존, 자신의 확장만 백업, 반복 실행, 동시 데이터 이전, 덮어쓰기/다른 확장 거부 확인.
+- 새 API 주소·쿠키·전용 요청 헤더에서 기존 인증·계정 격리 검사 통과.
+- Chromium에서 두 채팅을 번갈아 열어 첫 열기 0번/스크롤 위치 8번/기존 대화 35번 복원, 처음으로 버튼 0번 저장, 6개 테마의 본문 색상과 재접속 후 선택 유지 확인. 크림·로즈·밤서재 화면을 시각 확인했습니다.
+- Android URL 정책 검사, 새 package app.silly.bookshop/versionCode 6/APK 서명 확인. 실제 폰 설치는 아직 미검증.
+
 ## 다시 실행하기
 
 기본 단위 테스트에는 외부 패키지가 필요 없습니다:
@@ -78,20 +85,20 @@ NODE_PATH=/테스트전용/node_modules node server/tests/catalog-refresh.cjs
 NODE_PATH=/테스트전용/node_modules node server/tests/renderer-recovery.cjs
 ```
 
-웹 테스트의 스크린샷 저장 위치는 `SILI_SCREENSHOT_DIR`로 정합니다. 테스트를 실행한 곳의 출력은 개인 파일이 섞이지 않았는지 확인한 뒤 공유하세요.
+웹 테스트의 스크린샷 저장 위치는 `SILLY_SCREENSHOT_DIR`로 정합니다. 테스트를 실행한 곳의 출력은 개인 파일이 섞이지 않았는지 확인한 뒤 공유하세요.
 
 Java URL 테스트는 Java 17 javac로 Android SDK 없이 실행할 수 있습니다:
 
 ```sh
-mkdir -p /tmp/sili-url-test
-javac -d /tmp/sili-url-test android/src/app/sili/library/UrlPolicy.java android/tests/UrlPolicyTest.java
-java -cp /tmp/sili-url-test UrlPolicyTest
+mkdir -p /tmp/silly-url-test
+javac -d /tmp/silly-url-test android/src/app/silly/bookshop/UrlPolicy.java android/tests/UrlPolicyTest.java
+java -cp /tmp/silly-url-test UrlPolicyTest
 ```
 
 ## 실제 폰·서버에서 반드시 확인할 항목 — 아직 미완료
 
 - [ ] GitHub 저장소를 clone한 뒤 실제 실리에서 플러그인 로드, setup.cjs 계정 경로 확인.
-- [ ] 폰에 새 APK 설치, 또는 기존 0.1.x 위에 업데이트.
+- [ ] 새 app.silly.bookshop APK 설치 및 기존 서버 주소 입력. 기존 앱과 별도로 설치되는지 확인.
 - [ ] 같은 폰 localhost 접속, 실리 기본 인증/사용자 계정 로그인, 책방 로그인.
 - [ ] 테일스케일 PC 접속, 실제 채팅 새 답변·수정·스와이프 저장 반영.
 - [ ] PC에서 읽다가 폰으로 옮겨 같은 대화의 위치 확인.
@@ -100,7 +107,7 @@ java -cp /tmp/sili-url-test UrlPolicyTest
 - [ ] 실제 서로 다른 실리 사용자 계정에서 데이터 혼합이 없는지 확인.
 - [ ] 자신의 큰 채팅·그룹 채팅·정규식 숨김 및 최종 번역 화면 확인.
 - [ ] 실리 채팅방을 열지 않고 저장 번역과 전체 대화 읽기. 사용 중인 전역/프리셋/카드 정규식 조합과 폰 WebView HTML 높이/접기 확인.
-- [ ] 이전 보조 확장을 안내 화면으로 교체한 후 더 이상 화면을 수집/전송하지 않는지 확인.
+- [ ] 이전 명령 후 확장 탭에서 책방 항목 제거, 비밀번호/대화별 읽던 위치 보존 확인.
 - [ ] 실리에서 캐릭터·채팅 추가/삭제·프사 교체 후 책방 새로고침. 잔여 채팅 폴더의 삭제된 캐릭터가 표시되지 않는지 확인.
 - [ ] Android의 스크린샷 허용 및 백업 제외 정책 확인.
 - [ ] 인터넷 프록시를 쓸 경우 HTTPS·Origin·쿠키 Secure·실리 인증·본문 크기 제한 확인.
@@ -109,9 +116,9 @@ java -cp /tmp/sili-url-test UrlPolicyTest
 
 ## APK 식별
 
-- 패키지: `app.sili.library`
+- 패키지: `app.silly.bookshop`
 - 표시 이름: 실리 책방
-- versionCode: 5 / versionName: 0.3.1-test.1
+- versionCode: 6 / versionName: 0.5.0-test.1
 - Android API 26 이상 / target API 35
 - 앱이 요청하는 권한: INTERNET
 - 서명 인증서 SHA-256: `d7ca695de38f3708bee090e88d8a4306bb05f332575b49cbbe1ea0db395ddfae`

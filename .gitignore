@@ -1,0 +1,26 @@
+# Private data and signing material must never be committed.
+**/signing/
+**/.silly-bookshop/
+**/auth.json
+**/reading.json
+**/settings.json
+**/secrets.json
+**/*.jsonl
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*.keystore
+**/*.key
+**/*.pem
+**/password.txt
+.env
+.env.*
+**/node_modules/
+android/build/
+dist/
+*.apk
+*.idsig
+*.zip
+*.log
+__pycache__/
+.DS_Store

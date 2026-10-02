@@ -1,13 +1,14 @@
 'use strict';
 (() => {
-const $=id=>document.getElementById(id), base='/api/plugins/sili-library';
-const prefs={get(k,f){try{return localStorage.getItem('sili-library:'+k)||f;}catch{return f;}},set(k,v){try{localStorage.setItem('sili-library:'+k,v);}catch{}}};
+const $=id=>document.getElementById(id), base='/api/plugins/silly-bookshop';
+const prefs={get(k,f){try{let value=localStorage.getItem('silly-bookshop:'+k);if(value===null){value=localStorage.getItem('sili-library:'+k);if(value!==null){localStorage.setItem('silly-bookshop:'+k,value);localStorage.removeItem('sili-library:'+k);}}return value||f;}catch{return f;}},set(k,v){try{localStorage.setItem('silly-bookshop:'+k,v);}catch{}}};
+const pendingPositions=new Map();
 let people=[],catalogRequest=0,chats=[],active='',character='',revision='',start=0,total=0,epoch=0,loading=false,unlocked=false,restoring=false;
 let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='0.4.1-test.1';
+const UI_VERSION='0.5.0-test.1';
 let rendererLoading=null;
 function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
 function ensureRenderer(){
@@ -25,9 +26,12 @@ function ensureRenderer(){
 }
 if(![15,16,18,20].includes(font))font=16;
 document.documentElement.style.setProperty('--reading-size',font+'px');
-document.documentElement.dataset.theme=prefs.get('theme',matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+const themeNames={light:'화이트',cream:'크림',rose:'로즈',sage:'세이지',cocoa:'밤서재',dark:'잉크'};
+const selectedTheme=prefs.get('theme',matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+document.documentElement.dataset.theme=Object.hasOwn(themeNames,selectedTheme)?selectedTheme:'light';
+$('theme').value=document.documentElement.dataset.theme;
 function status(text){$('status').textContent=text;}
-function gate(message){unlocked=false;epoch++;catalogRequest++;authEpoch++;avatarObserver?.disconnect();avatarQueue.splice(0).forEach(job=>job.resolve(null));avatarFailures.clear();$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;window.BookshopRich?.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';people=[];chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
+function gate(message){pendingPositions.clear();unlocked=false;epoch++;catalogRequest++;authEpoch++;avatarObserver?.disconnect();avatarQueue.splice(0).forEach(job=>job.resolve(null));avatarFailures.clear();$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;window.BookshopRich?.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';people=[];chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
 async function request(url,options={},timeout=20000){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
     try{const r=await fetch(url,{...options,signal:controller.signal});const bytes=await r.arrayBuffer();return {ok:r.ok,status:r.status,headers:r.headers,bytes};}
@@ -38,7 +42,7 @@ async function api(route,body,keepalive=false){
     const options={credentials:'same-origin',cache:'no-store',redirect:'error'};
     if(body!==undefined){
         if(!csrf){const response=await request('/csrf-token',{credentials:'same-origin',cache:'no-store'});try{csrf=JSON.parse(new TextDecoder().decode(response.bytes)).token;}catch{throw new Error('실리 로그인이 필요해요. 실리 로그인 화면을 먼저 열어 주세요.');}}
-        Object.assign(options,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,'X-Sili-Request':'1'},body:JSON.stringify(body),keepalive});
+        Object.assign(options,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,'X-Silly-Request':'1'},body:JSON.stringify(body),keepalive});
     }
     const response=await request(base+route,options);
     let data;try{data=JSON.parse(new TextDecoder().decode(response.bytes));}catch{throw new Error('실리 로그인 화면으로 이동했거나 서버가 잘못된 응답을 보냈어요.');}
@@ -90,7 +94,8 @@ function position(){
 function restore(pos){
     restoring=true;
     const el=pos&&scroller.querySelector('[data-index="'+pos.index+'"]');
-    if(el){const r=el.getBoundingClientRect();scroller.scrollTop+=r.top-scroller.getBoundingClientRect().top+pos.fraction*r.height;}
+    if(pos?.index===0&&pos.fraction===0&&start===0)scroller.scrollTop=0;
+    else if(el){const r=el.getBoundingClientRect();scroller.scrollTop+=r.top-scroller.getBoundingClientRect().top+pos.fraction*r.height;}
     else scroller.scrollTop=0;
     requestAnimationFrame(()=>requestAnimationFrame(()=>{restoring=false;}));
 }
@@ -98,8 +103,8 @@ async function save(keepalive=false){
     clearTimeout(saveTimer);
     if(!unlocked||!active||!scrollDirty)return;
     const pos=position(),id=active;if(!pos)return;
-    scrollDirty=false;lastPosition=pos;
-    try{await api('/position',{id,position:pos},keepalive);if(id===active)status('읽던 위치 저장됨 · 자동 연동 중');}
+    scrollDirty=false;lastPosition=pos;pendingPositions.set(id,pos);
+    try{await api('/position',{id,position:pos},keepalive);if(pendingPositions.get(id)===pos)pendingPositions.delete(id);if(id===active)status('읽던 위치 저장됨 · 자동 연동 중');}
     catch(e){if(id===active){scrollDirty=true;status('위치 저장 실패 · '+e.message);}}
 }
 function fold(value){const p=position();$('library').classList.toggle('collapsed',value);$('fold').setAttribute('aria-expanded',String(!value));$('fold').setAttribute('aria-label',value?'목록 펼치기':'목록 접기');prefs.set('collapsed',String(value));if(active&&p)restore(p);}
@@ -133,7 +138,7 @@ function clearSelection(message){
     scroller.querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
     window.BookshopRich?.clear(scroller);scroller.replaceChildren(node('p','notice',message));
     active='';revision='';lastPosition=null;start=0;total=0;prefs.set('last','');
-    $('title').textContent='대화를 골라 주세요';$('person').textContent='현재 실리의 책장';$('latest').hidden=true;
+    $('title').textContent='대화를 골라 주세요';$('person').textContent='현재 실리의 책장';$('latest').hidden=true;$('first').hidden=true;
     status(message);if(matchMedia('(max-width:640px)').matches)fold(false);
 }
 async function catalog(){
@@ -174,8 +179,8 @@ function renderChat(data,pos){
     if(data.nextStart<total){const b=node('button','page-button','다음 대화 읽기 ↓');b.onclick=()=>page(data.nextStart);scroller.append(b);}
     if(!total)scroller.append(node('p','notice','아직 메시지가 없는 대화예요.'));
     if(data.skipped)scroller.append(node('p','notice','읽을 수 없는 줄 '+data.skipped+'개를 건너뛰었어요.'));
-    $('latest').hidden=!total;
-    lastPosition=pos||data.saved;
+    $('latest').hidden=!total;$('first').hidden=!total;
+    lastPosition=pos||data.saved||{index:start,fraction:0};
     restore(lastPosition);
     const blocked=data.messages.filter(m=>m.error).length;
     status(blocked?'현재 페이지 '+blocked+'개 표시 설정 확인 필요':'자동 업데이트 중 · '+total.toLocaleString()+'개 메시지');
@@ -192,9 +197,11 @@ async function openChat(id,requestedStart){
         if(!unlocked||ticket!==epoch)return;
         await ensureRenderer();
         if(!unlocked||ticket!==epoch)return;
-        const data=await api('/chat?id='+encodeURIComponent(id)+(requestedStart===undefined?'':'&start='+requestedStart));
+        const pending=requestedStart===undefined?pendingPositions.get(id):null;
+        const pageStart=requestedStart??pending?.index;
+        const data=await api('/chat?id='+encodeURIComponent(id)+(pageStart===undefined?'':'&start='+pageStart));
         if(!unlocked||ticket!==epoch)return;
-        renderChat(data,requestedStart===undefined?data.saved:{index:requestedStart,fraction:0});
+        renderChat(data,requestedStart===undefined?(pending||data.saved||{index:0,fraction:0}):{index:requestedStart,fraction:0});
     }catch(e){if(ticket===epoch){window.BookshopRich?.clear(scroller);scroller.replaceChildren(node('p','notice',e.message));const retry=node('button','page-button','다시 불러오기');retry.onclick=()=>openChat(id,requestedStart);scroller.append(retry);status('불러오기 실패 · 다시 시도할 수 있어요.');}}
     finally{if(ticket===epoch)loading=false;}
 }
@@ -228,12 +235,13 @@ $('refresh').onclick=async()=>{
         if(active)await openChat(active);else status('현재 실리 목록으로 새로고침했어요.');
     }catch(e){status('새로고침 실패 · '+e.message);}finally{button.disabled=false;}
 };
-$('theme').onclick=()=>{const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;prefs.set('theme',value);window.BookshopRich?.refresh(scroller);};
+$('theme').onchange=()=>{const p=position(),value=$('theme').value;if(!Object.hasOwn(themeNames,value))return;document.documentElement.dataset.theme=value;prefs.set('theme',value);window.BookshopRich?.refresh(scroller);if(p)restore(p);};
+$('first').onclick=()=>page(0);
 $('latest').onclick=()=>page(Math.max(0,total-1));
 $('lock').onclick=async()=>{const saving=save();gate('책방을 잠그고 있어요.');try{await Promise.race([saving,new Promise(resolve=>setTimeout(resolve,1500))]);await api('/logout',{});$('gate-status').textContent='책방을 잠갔어요.';}catch(e){$('gate-status').textContent='화면은 가렸지만 서버 로그아웃을 확인하지 못했어요. 연결 후 다시 확인해 주세요.';}};
 scroller.addEventListener('scroll',()=>{if(restoring||loading||!active)return;scrollDirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(()=>save(),650);},{passive:true});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save(true);else if(unlocked){if(active&&!scrollDirty)openChat(active);else poll();}});
 window.addEventListener('pagehide',()=>save(true));
 setInterval(()=>{if(unlocked&&!document.hidden)catalog().catch(e=>status(e.message));},30000);
-(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.4.1';if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}})();
+(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.5.0';if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}})();
 })();

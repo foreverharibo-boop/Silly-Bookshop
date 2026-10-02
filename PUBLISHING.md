@@ -2,13 +2,13 @@
 
 ## 공개 저장소에 올릴 것
 
-`silly-bookshop-github-0.4.1-test.1.zip`을 압축 해제한 **silly-bookshop 폴더 안의 내용**을 업로드합니다. 저장소의 최상위에 `package.json`이 있어야 합니다. ZIP 파일만 올리거나 폴더를 한 단계 더 감싸면 플러그인으로 바로 로드되지 않습니다.
+`silly-bookshop-github-0.5.0-test.1.zip`을 압축 해제한 **silly-bookshop 폴더 안의 내용**을 업로드합니다. 저장소의 최상위에 `package.json`이 있어야 합니다. ZIP 파일만 올리거나 폴더를 한 단계 더 감싸면 플러그인으로 바로 로드되지 않습니다.
 
 이 ZIP에는 앱 서명 키, 암호 파일, 채팅, 실리 설정, 사용자 인증 파일, APK, 과거 Git 이력이 포함되지 않습니다. `.gitignore`만 믿지 않고 공개 파일 허용 목록을 기준으로 생성합니다.
 
 APK는 별도의 **GitHub Releases 첨부 파일**로 올립니다. 현재는 테스트 단계이므로 실기 테스트 후 pre-release로 공유하세요. 정식 출시와 저장소 공개는 별도 결정이며 자동 업로드/태그 생성 워크플로는 넣지 않았습니다.
 
-저장소 이름은 `silly-bookshop`을 권장합니다. 설치 폴더는 이전 버전 데이터와의 호환을 위해 `plugins/sili-library`를 사용합니다. 앱 패키지 `app.sili.library`, API 주소 `/api/plugins/sili-library/`, 데이터 폴더 `.sili-library`도 유지합니다.
+저장소 이름은 `silly-bookshop`을 권장합니다. 설치 폴더는 `plugins/silly-bookshop`입니다. 앱 패키지 `app.silly.bookshop`, API 주소 `/api/plugins/silly-bookshop/`, 데이터 폴더 `.silly-bookshop`을 사용합니다.
 
 ## 공개 전 검사
 
@@ -30,17 +30,17 @@ python3 scripts/package-public.py
 
 ## APK 직접 빌드
 
-Android SDK Build Tools 35.0.0, Android API 35 platform, Java 17+ 및 javac 또는 ECJ 3.39.0, Python 3.9+가 필요합니다. 예시 경로는 자신의 환경에 맞게 바꿉니다. ECJ를 쓰지 않으면 `SILI_ECJ`를 생략합니다.
+Android SDK Build Tools 35.0.0, Android API 35 platform, Java 17+ 및 javac 또는 ECJ 3.39.0, Python 3.9+가 필요합니다. 예시 경로는 자신의 환경에 맞게 바꿉니다. ECJ를 쓰지 않으면 `SILLY_ECJ`를 생략합니다.
 
 ```sh
-SILI_BUILD_TOOLS=/본인SDK/build-tools/35.0.0 \
-SILI_ANDROID_JAR=/본인SDK/platforms/android-35/android.jar \
-SILI_KEYSTORE=/저장소밖/개인보관/release.p12 \
-SILI_KEY_PASSWORD_FILE=/저장소밖/개인보관/password.txt \
+SILLY_BUILD_TOOLS=/본인SDK/build-tools/35.0.0 \
+SILLY_ANDROID_JAR=/본인SDK/platforms/android-35/android.jar \
+SILLY_KEYSTORE=/저장소밖/개인보관/release.p12 \
+SILLY_KEY_PASSWORD_FILE=/저장소밖/개인보관/password.txt \
 bash android/build.sh
 ```
 
-빌드는 키를 새로 만들지 않고 `dist/silly-bookshop-0.3.1-test.1.apk`를 생성합니다. 공개 소스 ZIP에는 APK가 포함되지 않으므로 Releases에 APK를 따로 붙입니다. 빌드 도구는 Google 공식 Android SDK, ECJ는 Eclipse 공식 배포처에서 받으세요.
+빌드는 키를 새로 만들지 않고 `dist/silly-bookshop-0.5.0-test.1.apk`를 생성합니다. 공개 소스 ZIP에는 APK가 포함되지 않으므로 Releases에 APK를 따로 붙입니다. 빌드 도구는 Google 공식 Android SDK, ECJ는 Eclipse 공식 배포처에서 받으세요.
 
 APK 서명 인증서 SHA-256은 검증 결과에 남깁니다. 인증서는 공개 정보이며 개인 키와 다릅니다. APK에 포함된 인증서를 추출하는 것으로 서명 개인 키가 노출되지는 않습니다.
 
@@ -52,6 +52,6 @@ APK 서명 인증서 SHA-256은 검증 결과에 남깁니다. 인증서는 공�
 4. 테스트한 커밋을 태그로 고정하고 APK와 체크섬을 pre-release에 첨부.
 5. 정식 배포 전에 남은 문제와 지원 범위를 README에 명시.
 
-0.4.0은 서버·웹 읽기 구조를 변경합니다. 기존 보조 확장은 안내 화면으로 교체합니다. APK는 0.3.1을 유지하므로 기존 앱 사용자는 재설치하지 않아도 됩니다.
+0.5.0은 이름과 앱 식별자를 통일합니다. 이전 앱에 덮어쓰는 업데이트가 아니라 새 앱 설치입니다. README의 이전 명령으로 비밀번호·읽던 위치를 보존하고 기존 화면 연동 확장을 제거합니다. 새 설치에 브라우저 확장은 필요 없습니다.
 
 렌더러 코드를 수정하려면 `server/renderer-source.js`를 편집한 뒤 `node scripts/build-renderer.cjs`를 실행하고 생성된 `server/public/rich.js`도 함께 커밋합니다. 일반 사용자는 빌드할 필요가 없습니다. 패키징은 묶음이 오래됐으면 중단합니다.

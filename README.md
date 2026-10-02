@@ -1,14 +1,14 @@
 # 실리 책방 · Silly Bookshop
 
-**0.4.1-test.1 · 공개 배포 전 테스트 버전**
+**0.5.0-test.1 · 공개 배포 전 테스트 버전**
 
 실리의 채팅을 읽는 개인용 웹 화면과 안드로이드 앱입니다. 각 사용자는 **자기 실리 서버**에 이 서버 플러그인을 설치하고, 앱에 자기 서버 주소를 입력합니다. 중앙 채팅 서버나 제작자 계정은 필요하지 않습니다.
 
-실리 캐릭터 프사, 캐릭터 바로 아래로 펼쳐지는 대화 목록, 말풍선, 저장된 번역·표시 정규식·HTML/div/CSS 화면, 밝은/어두운 화면, 글자 크기와 기기 사이 읽던 위치 복원을 지원합니다.
+실리 캐릭터 프사, 캐릭터 바로 아래로 펼쳐지는 대화 목록, 말풍선, 저장된 번역·표시 정규식·HTML/div/CSS 화면, 화이트·크림·로즈·세이지·밤서재·잉크 테마, 글자 크기와 기기 사이 읽던 위치 복원을 지원합니다.
 
 ## 설치 구조
 
-이 저장소를 통째로 `SillyTavern/plugins/sili-library`에 clone하면 최상위 `package.json`의 `main: server/index.cjs`로 로드됩니다. **일반 확장 설치 메뉴에 넣지 않습니다.** 실행용 외부 npm 의존성이 없어 `npm install`도 필요 없습니다.
+이 저장소를 통째로 `SillyTavern/plugins/silly-bookshop`에 clone하면 최상위 `package.json`의 `main: server/index.cjs`로 로드됩니다. **일반 확장 설치 메뉴에 넣지 않습니다.** 실행용 외부 npm 의존성이 없어 `npm install`도 필요 없습니다.
 
 Android 8 이상 / Node.js 18 이상. 실리가 실행 중이어야 읽을 수 있습니다. 실리 계정을 쓰는 경우 각 계정의 채팅만 읽습니다.
 
@@ -18,9 +18,9 @@ Android 8 이상 / Node.js 18 이상. 실리가 실행 중이어야 읽을 수 �
 
 ```sh
 cd ~/SillyTavern
-read -r -p "책방 깃허브 저장소 주소를 붙여넣으세요: " SILI_REPO_URL
-git clone -- "$SILI_REPO_URL" plugins/sili-library
-cd plugins/sili-library
+read -r -p "책방 깃허브 저장소 주소를 붙여넣으세요: " SILLY_REPO_URL
+git clone -- "$SILLY_REPO_URL" plugins/silly-bookshop
+cd plugins/silly-bookshop
 node scripts/enable-plugin.cjs
 node setup.cjs
 ```
@@ -44,7 +44,7 @@ cd ~/SillyTavern
 bash start.sh
 ```
 
-콘솔에 `[실리 책방 0.4.1-test.1] /api/plugins/sili-library/`가 표시됩니다.
+콘솔에 `[실리 책방 0.5.0-test.1] /api/plugins/silly-bookshop/`가 표시됩니다.
 
 ## 채팅방을 열지 않고 바로 읽기
 
@@ -86,16 +86,16 @@ bash start.sh
 
 포트가 다르면 8000을 실제 포트로 바꿉니다. 실리 기본 주소만 넣으면 책방 경로는 자동으로 붙습니다. 하위 경로 프록시는 지원하지 않습니다.
 
-실리 자체 인증이 있으면 먼저 실리 로그인 후 위쪽 **책방**을 누르고, 책방 비밀번호를 입력합니다. 기존 `0.1.x` 앱은 삭제 없이 새 APK로 업데이트 가능합니다. 기존 HTTP LAN 주소(192.168.x.x 등)는 이 버전에서 차단하므로 localhost/테일스케일/HTTPS 주소로 바꿔 주세요.
+실리 자체 인증이 있으면 먼저 실리 로그인 후 위쪽 **책방**을 누르고, 책방 비밀번호를 입력합니다. 0.5.0은 앱 식별자를 `app.silly.bookshop`으로 바꿔 새 앱으로 설치됩니다. 새 앱에 서버 주소를 한 번 입력하고 기존 책방 비밀번호로 로그인하세요. 정상 작동 확인 후 예전 앱을 삭제하면 됩니다. 읽던 위치와 비밀번호는 서버 데이터 이전으로 보존됩니다. 기존 HTTP LAN 주소(192.168.x.x 등)는 이 버전에서 차단하므로 localhost/테일스케일/HTTPS 주소로 바꿔 주세요.
 
 0.3.1부터 앱의 스크린샷 차단 설정을 제거했습니다. 일반 캡처가 가능하며 최근 앱 화면에도 내용이 보일 수 있습니다. 서버 주소를 변경하면 앱 안의 이전 쿠키와 웹 저장 데이터를 비웁니다.
 
 ## 컴퓨터에서 읽기
 
-테일스케일로 실리를 여는 주소 뒤에 `/api/plugins/sili-library/`를 붙입니다. 예:
+테일스케일로 실리를 여는 주소 뒤에 `/api/plugins/silly-bookshop/`를 붙입니다. 예:
 
 ```text
-http://100.x.y.z:8000/api/plugins/sili-library/
+http://100.x.y.z:8000/api/plugins/silly-bookshop/
 ```
 
 403이면 같은 서버의 실리 메인 화면에서 먼저 로그인하고 돌아오세요. 네트워크 제한 안내가 나오면 localhost/테일스케일/HTTPS를 확인합니다. 실리의 기존 IP 허용 목록과 로그인 제한은 그대로 적용됩니다.
@@ -114,36 +114,48 @@ http://100.x.y.z:8000/api/plugins/sili-library/
 - 생성 중 아직 실리가 파일에 저장하지 않은 내용은 표시되지 않습니다.
 - 읽던 위치는 스크롤을 멈춘 뒤 약 0.65초 후 저장됩니다. 같은 대화를 다른 기기에서 열면 이어 읽습니다. 동시에 읽으면 마지막 저장이 적용됩니다.
 - 글자 크기·테마·목록 접힘·최근 선택 ID는 기기 웹 저장소에 보관합니다. 대화 본문을 오프라인 보관하지 않습니다.
-- 서버 추가 파일은 해당 계정의 `data/<handle>/.sili-library/auth.json`, `reading.json`입니다. 이전 `rendered/` 복사본은 남아 있어도 읽기에 사용하지 않습니다. 비밀번호는 salt+scrypt 해시로 저장합니다.
+- 서버 추가 파일은 해당 계정의 `data/<handle>/.silly-bookshop/auth.json`, `reading.json`입니다. 이전 `rendered/` 복사본은 남아 있어도 읽기에 사용하지 않습니다. 비밀번호는 salt+scrypt 해시로 저장합니다.
 - 원본 JSONL과 `settings.json`, 프롬프트, API 키, 다른 확장 파일은 변경하지 않습니다.
 - 추가 AI 호출, 분석/광고 SDK, 제작자 알림, 외부 이미지 자동 요청이 없습니다.
 
-## 업데이트
+## 기존 설치를 Silly 이름으로 이전하기
 
-**기존 0.1.x ZIP 설치자는** 서버를 멈추고 기존 플러그인 폴더를 `plugins` 밖에 백업한 뒤 저장소를 같은 이름으로 clone하세요. 계정 데이터 폴더는 이동하거나 삭제하지 않습니다.
+0.5.0부터 설치 폴더는 `plugins/silly-bookshop`, 접속 주소는 `/api/plugins/silly-bookshop/`, 계정 데이터는 `.silly-bookshop`, 앱 식별자는 `app.silly.bookshop`입니다. 표시 이름은 계속 **실리 책방**입니다.
 
-```sh
-cd ~/SillyTavern
-mv plugins/sili-library "$HOME/silly-bookshop-plugin-backup-$(date +%Y%m%d-%H%M%S)"
-read -r -p "책방 깃허브 저장소 주소: " SILI_REPO_URL
-git clone -- "$SILI_REPO_URL" plugins/sili-library
-```
-
-clone이 실패하면 백업 폴더를 원래 위치로 되돌리면 됩니다. 비밀번호와 읽던 위치는 별도 계정 폴더에 남아 있습니다. 기존 비밀번호가 짧다면 `node setup.cjs`로 새로 설정하세요.
-
-**0.3.1 이상 APK는 그대로 씁니다.** 서버·책방 화면을 0.4.1로 바꾸고 아래 명령으로 이전 연동 확장을 안내 화면으로 교체합니다. 더 이상 메시지 화면을 수집하거나 업로드하지 않습니다.
-
-**이미 Git으로 설치한 뒤의 업데이트**는 실리를 중지한 상태에서 실행합니다:
+1. 공개 ZIP의 **silly-bookshop 폴더 안 내용 전체**를 기존 GitHub 저장소에 업데이트합니다.
+2. 실리를 Ctrl+C로 종료합니다. 처음에 이전 이름으로 설치했다면:
 
 ```sh
-cd ~/SillyTavern/plugins/sili-library
-git pull --ff-only
-node scripts/install-bridge.cjs
+cd ~/SillyTavern/plugins/sili-library &&
+git pull --ff-only &&
+node scripts/migrate-silly.cjs &&
+cd ~/SillyTavern &&
+bash start.sh
 ```
 
-실리 서버를 다시 켜고, 실리 브라우저와 책방 화면을 새로고침합니다. 실리 브라우저 새로고침은 이전 연동 코드를 종료하기 위한 1회 절차입니다. 이후 책방 읽기를 위해 실리 채팅방을 열 필요가 없습니다. 0.2.x/0.3.0에서 올라오는 경우 새 APK도 삭제 없이 덮어 설치하세요. 책방 비밀번호와 읽던 위치는 유지됩니다.
+이 명령은 설치 폴더 이름을 `silly-bookshop`으로 바꾸고 `.git`을 보존합니다. 기본 data 폴더 안 각 계정의 기존 책방 데이터도 새 이름으로 옮깁니다. 사용자 지정 데이터 경로는 첫 접속 때 이전합니다. 비밀번호·읽던 위치·채팅 ID는 그대로 유지됩니다. 이전·새 데이터 폴더가 모두 있으면 덮어쓰지 않고 안내합니다.
 
-테스트 버전을 고정하려면 검증한 태그/커밋을 checkout하세요. 실리의 `enableServerPluginsAutoUpdate`가 true이면 시작할 때 Git 플러그인을 자동 업데이트할 수 있습니다. false로 바꾸면 **다른 서버 플러그인의 자동 업데이트에도 영향**을 주므로 본인 운영 방식에 맞게 직접 결정하세요.
+기존 화면 연동 확장만 `SillyTavern/silly-bookshop-backups/`로 옮겨 확장 목록에서 제거합니다. 다른 확장과 실리 settings.json은 수정하지 않습니다. 실행 중인 옛 확장 코드를 끝내려면 **실리 브라우저를 한 번 새로고침**하세요. 새 설치에는 브라우저 확장이 필요 없습니다.
+
+3. **0.5.0 APK를 새로 설치**하고 서버 기본 주소를 입력합니다. 같은 폰은 `http://127.0.0.1:8000`입니다. 기존 책방 비밀번호로 로그인하면 됩니다. 새 앱에서 읽기가 되는지 확인한 뒤 예전 앱을 삭제하세요.
+4. PC 즐겨찾기는 실리 기본 주소 뒤에 `/api/plugins/silly-bookshop/`을 붙인 새 주소로 바꿉니다.
+
+이미 폴더 이름이 바뀐 뒤의 업데이트:
+
+```sh
+cd ~/SillyTavern/plugins/silly-bookshop &&
+git pull --ff-only &&
+node scripts/migrate-silly.cjs &&
+cd ~/SillyTavern &&
+bash start.sh
+```
+
+## 읽기 위치와 테마
+
+- 처음 여는 대화는 항상 **첫 번째 메시지, 맨 위**에서 엽니다. 다른 채팅의 스크롤 위치를 이어받지 않습니다.
+- 읽다가 스크롤을 멈추면 대화별 위치를 자동 저장합니다. 다시 열거나 다른 기기에서 같은 대화를 열면 마지막 저장 위치를 복원합니다. 화면 높이가 바뀌는 HTML도 위치를 보정합니다.
+- **처음으로 ↑**를 누르면 언제든 첫 메시지로 돌아갈 수 있습니다. 이미 읽던 위치가 있는 대화는 업데이트 후에도 그 위치를 유지합니다.
+- 상단 **테마 선택**에서 화이트·크림·로즈·세이지·밤서재·잉크를 고릅니다. 선택한 테마는 해당 브라우저/앱에 저장됩니다. 새 APK는 별도 앱이므로 처음에는 테마를 다시 골라야 합니다.
 
 ## 현재 제한
 

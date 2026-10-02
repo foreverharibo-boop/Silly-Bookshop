@@ -3,7 +3,7 @@
 const express=require('express'),fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict');
 const c=require('../core.cjs'),plugin=require('../index.cjs');
 (async()=>{
-const temp=await fs.mkdtemp(path.join(os.tmpdir(),'sili-http-'));let server;
+const temp=await fs.mkdtemp(path.join(os.tmpdir(),'silly-http-'));let server;
 try{
 const users={};for(const name of ['a','b','unconfigured']){
  const root=path.join(temp,name),dirs={root,chats:path.join(root,'chats'),groupChats:path.join(root,'group chats'),groups:path.join(root,'groups')};
@@ -14,19 +14,19 @@ const users={};for(const name of ['a','b','unconfigured']){
 const app=express();app.use(express.json({limit:'20kb'}));
 // The selector exists ONLY in this fixture; production always uses SillyTavern req.user.
 app.use((req,res,next)=>{if(req.get('x-fixture-user')!=='none')req.user={directories:users[req.get('x-fixture-user')||'a']};res.set('Access-Control-Allow-Origin','https://evil.invalid');next();});
-const router=express.Router();await plugin.init(router);app.use('/api/plugins/sili-library',router);
+const router=express.Router();await plugin.init(router);app.use('/api/plugins/silly-bookshop',router);
 server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(s));});
-const origin='http://127.0.0.1:'+server.address().port,base=origin+'/api/plugins/sili-library';
-const post=(route,data,extra={})=>fetch(base+route,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','X-Sili-Request':'1',...extra},body:JSON.stringify(data)});
+const origin='http://127.0.0.1:'+server.address().port,base=origin+'/api/plugins/silly-bookshop';
+const post=(route,data,extra={})=>fetch(base+route,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','X-Silly-Request':'1',...extra},body:JSON.stringify(data)});
 assert.equal((await fetch(base+'/catalog')).status,401);
 assert.equal((await fetch(base+'/status',{headers:{'x-fixture-user':'none'}})).status,403);
 assert.equal((await fetch(base+'/catalog',{headers:{'x-fixture-user':'unconfigured'}})).status,401);
 assert.equal((await post('/login',{password:'test-password-123'},{'x-fixture-user':'unconfigured'})).status,409);
 assert.equal((await post('/login',{password:'test-password-123'},{Origin:'https://127.0.0.1:'+server.address().port})).status,403);
-assert.equal((await post('/login',{password:'test-password-123'},{'X-Sili-Request':''})).status,403);
+assert.equal((await post('/login',{password:'test-password-123'},{'X-Silly-Request':''})).status,403);
 assert.equal((await post('/login',{password:'x'.repeat(9000)})).status,413);
 const login=await post('/login',{password:'test-password-123'});assert.equal(login.status,200);
-const rawCookie=login.headers.get('set-cookie'),cookie=rawCookie.split(';')[0];assert.match(rawCookie,/HttpOnly/);assert.match(rawCookie,/SameSite=Strict/);assert.match(rawCookie,/Path=\/api\/plugins\/sili-library/);
+const rawCookie=login.headers.get('set-cookie'),cookie=rawCookie.split(';')[0];assert.match(rawCookie,/HttpOnly/);assert.match(rawCookie,/SameSite=Strict/);assert.match(rawCookie,/Path=\/api\/plugins\/silly-bookshop/);
 const catalog=await fetch(base+'/catalog',{headers:{Cookie:cookie}});assert.equal(catalog.status,200);assert.equal(catalog.headers.get('access-control-allow-origin'),null);assert.equal(catalog.headers.get('x-frame-options'),'DENY');assert.equal(catalog.headers.get('cache-control'),'no-store');
 assert.equal((await fetch(base+'/catalog',{headers:{Cookie:cookie,'x-fixture-user':'b'}})).status,401);
 const otherHostStatus=await new Promise((resolve,reject)=>{require('node:http').get(base+'/catalog',{headers:{Cookie:cookie,Host:'other.invalid'}},res=>{res.resume();resolve(res.statusCode);}).on('error',reject);});assert.equal(otherHostStatus,401);

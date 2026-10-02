@@ -5,7 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const {promisify} = require('node:util');
 const scrypt = promisify(crypto.scrypt);
-const STATE = '.sili-library';
+const STATE = '.silly-bookshop';
 const fail = (status, message) => Object.assign(new Error(message), {status});
 function segment(s) {
     if (typeof s !== 'string' || !s || s === '.' || s === '..' || /[\\/\x00-\x1f]/.test(s)) throw fail(400, '잘못된 채팅 주소입니다.');
@@ -68,7 +68,7 @@ async function readJson(file, fallback,maxBytes=8*1024*1024) {
     catch (e) { if (e.code === 'ENOENT') return fallback; throw e; }
 }
 async function stateDir(root) {
-    const dir = path.join(root, STATE);
+    const dir = await serialized('migrate:'+root,()=>require('./migration.cjs').state(root));
     await fs.mkdir(dir, {recursive:true, mode:0o700});
     if ((await fs.lstat(dir)).isSymbolicLink()) throw fail(403, '책방 저장 폴더를 확인해 주세요.');
     await fs.chmod(dir,0o700);

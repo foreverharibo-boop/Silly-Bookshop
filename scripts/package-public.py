@@ -17,12 +17,12 @@ for p in sorted(root.rglob('*')):
     if parts[0] in {'.git','dist','node_modules'} or rel.startswith('android/build/') or '__pycache__' in parts:continue
     if p.is_symlink():raise SystemExit('Refusing symlink: '+rel)
     if not p.is_file():continue
-    if secret_name.fullmatch(p.name) or any(n in {'signing','.sili-library'} for n in parts):raise SystemExit('Private file found. Move it outside repository: '+rel)
+    if secret_name.fullmatch(p.name) or any(n in {'signing','.silly-bookshop','.sili-library'} for n in parts):raise SystemExit('Private file found. Move it outside repository: '+rel)
     allowed=rel in top or (parts[0] in trees and p.suffix in allowed_suffix) or rel in android_files or (rel.startswith(android_trees) and p.suffix in allowed_suffix)
     if not allowed:raise SystemExit('Unreviewed file outside public allowlist: '+rel)
     if secret_text.search(p.read_bytes()):raise SystemExit('Potential secret pattern: '+rel)
     files.append(p)
-required=top|{'server/index.cjs','server/core.cjs','server/security.cjs','server/public/index.html','android/src/app/sili/library/MainActivity.java'}
+required=top|{'server/index.cjs','server/core.cjs','server/security.cjs','server/public/index.html','android/src/app/silly/bookshop/MainActivity.java'}
 missing=required-{p.relative_to(root).as_posix() for p in files}
 if missing:raise SystemExit('Missing public files: '+', '.join(sorted(missing)))
 print('Public allowlist and secret-pattern scan passed:',len(files),'files')

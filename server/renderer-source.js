@@ -41,9 +41,9 @@ window.BookshopRich=(()=>{
         const root=frame.contentDocument?.documentElement;if(!root)return;
         const styles=getComputedStyle(document.documentElement);
         for(const name of ['--ink','--muted','--paper','--side','--blue','--line','--reading-size'])root.style.setProperty(name,styles.getPropertyValue(name));
-        root.style.colorScheme=document.documentElement.dataset.theme==='dark'?'dark':'light';
+        root.style.colorScheme=styles.colorScheme;
     }
     function refresh(root){root.querySelectorAll('iframe.rich-output').forEach(frame=>{try{syncFrame(frame);}catch{}});}
     function clear(root){root.querySelectorAll('iframe.rich-output').forEach(frame=>frame._bookshopDispose?.());}
-    return {mount,refresh,clear,version:'0.4.1-test.1'};
+    return {mount,refresh,clear,version:'0.5.0-test.1'};
 })();

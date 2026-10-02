@@ -20,9 +20,9 @@ function png(red=40){
  }
  await c.atomicJson(path.join(await c.stateDir(root),'auth.json'),{salt:'fixture',hash:await c.passwordHash('test-password','fixture')});
  const app=express();app.use(express.json());app.use((req,res,next)=>{req.user={directories:dirs};next();});app.get('/csrf-token',(req,res)=>res.json({token:'fixture'}));
- const router=express.Router();await plugin.init(router);app.use('/api/plugins/sili-library',router);server=await new Promise(r=>{const s=app.listen(0,'127.0.0.1',()=>r(s));});
+ const router=express.Router();await plugin.init(router);app.use('/api/plugins/silly-bookshop',router);server=await new Promise(r=>{const s=app.listen(0,'127.0.0.1',()=>r(s));});
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('http://127.0.0.1:'+server.address().port+'/api/plugins/sili-library/');await page.locator('#password').fill('test-password');await page.locator('.primary').click();
+ await page.goto('http://127.0.0.1:'+server.address().port+'/api/plugins/silly-bookshop/');await page.locator('#password').fill('test-password');await page.locator('.primary').click();
  const row=name=>page.locator('.character').filter({has:page.locator('.character-name',{hasText:name})});
  await row('현재').waitFor();assert.equal(await page.locator('.character').count(),2);assert.equal(await row('삭제된 캐릭터').count(),0);
  await row('빈 캐릭터').click();await page.getByText('아직 저장된 대화가 없어요.',{exact:true}).waitFor();
@@ -33,7 +33,7 @@ function png(red=40){
  await fs.writeFile(path.join(dirs.characters,'현재.png'),png(190));await refresh();await row('현재').locator('img').waitFor();assert.equal(await red(),190);assert.equal(await page.locator('.message').count(),1);
  await fs.unlink(path.join(dirs.chats,'현재','대화.jsonl'));await refresh();assert.equal(await page.locator('.message,.thread').count(),0);await page.getByText('이 대화나 캐릭터는 현재 실리 목록에서 없어졌어요. 다른 대화를 골라 주세요.',{exact:true}).waitFor();
  await fs.writeFile(path.join(dirs.chats,'현재','새 대화.jsonl'),JSON.stringify({name:'현재',mes:'new'}));await refresh();await page.locator('.thread').filter({hasText:'새 대화'}).click();await page.locator('.message').waitFor();
- await fs.unlink(path.join(dirs.characters,'현재.png'));await refresh();assert.equal(await row('현재').count(),0);assert.equal(await page.locator('.message,.thread').count(),0);assert.equal(await page.evaluate(()=>localStorage.getItem('sili-library:last')),'');
+ await fs.unlink(path.join(dirs.characters,'현재.png'));await refresh();assert.equal(await row('현재').count(),0);assert.equal(await page.locator('.message,.thread').count(),0);assert.equal(await page.evaluate(()=>localStorage.getItem('silly-bookshop:last')),'');
  assert.ok(await fs.stat(path.join(dirs.chats,'현재','새 대화.jsonl')));
  await fs.writeFile(path.join(dirs.characters,'새 친구.png'),png());await refresh();await row('새 친구').waitFor();assert.equal(await page.locator('.character').count(),2);assert.deepEqual(errors,[]);
  console.log('PASS: current cards only; empty characters; refresh adds/removes chats and cards; removed selection cleared; successful avatar cache replaced with changed pixels; orphan files untouched.');

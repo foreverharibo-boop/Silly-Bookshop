@@ -30,5 +30,5 @@ async function hidden(prompt) {
     if(password!==await hidden('한 번 더 입력: '))throw new Error('두 비밀번호가 다릅니다.');
     const salt=crypto.randomBytes(32).toString('hex');
     await c.atomicJson(path.join(await c.stateDir(root),'auth.json'),{salt,hash:await c.passwordHash(password,salt)});
-    console.log('설정 완료! 책방 주소: /api/plugins/sili-library/');
+    console.log('설정 완료! 책방 주소: /api/plugins/silly-bookshop/');
 })().catch(e=>{console.error(e.message);process.exitCode=1;});
