@@ -10,3 +10,5 @@ Google Fonts source commit: 9710da1eacb3be272583c3224dcb70f9da6eadbb
 - GowunBatang-Bold.woff2: https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/gowunbatang/GowunBatang-Bold.ttf (original SHA-256 dbfcaa646e5831e7478524924f02906f550285a5050699b4e38c9950b3ec4b94)
 
 Unsubsetted WOFF2 conversions, no glyph or name changes. Each family is distributed under the accompanying SIL Open Font License 1.1. Served only from the configured Silly server; no font CDN requests.
+
+- RIDIBatang-Regular.woff2: official RIDI distribution; see RIDIBatang-SOURCE.md for source/hash and RIDIBatang-OFL.txt for copyright and license. Regular only; bold uses browser synthesis.

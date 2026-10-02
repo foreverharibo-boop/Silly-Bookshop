@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs');
-const BASE='/api/plugins/silly-bookshop',VERSION='0.6.0-test.1';
+const BASE='/api/plugins/silly-bookshop',VERSION='0.6.1-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -46,6 +46,7 @@ async function init(router){
         const name=family+'-'+weight+'.woff2';
         router.get('/fonts/'+name,(req,res)=>{res.set('Cache-Control','private, max-age=86400');res.sendFile(path.join(__dirname,'public/fonts',name));});
     }
+    router.get('/fonts/RIDIBatang-Regular.woff2',(req,res)=>{res.set('Cache-Control','private, max-age=86400');res.sendFile(path.join(__dirname,'public/fonts/RIDIBatang-Regular.woff2'));});
     router.get('/status',wrap(async(req,res)=>{
         statusRate(req.socket.remoteAddress);
         const conf=await c.authConfig(req.user.directories.root);

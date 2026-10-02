@@ -41,6 +41,9 @@ function png(){
  await page.getByRole('button',{name:'다음 대화 읽기 ↓'}).click();await page.locator('[data-index="30"]').waitFor();await page.frameLocator('[data-index="30"] iframe').getByText('갱신 30',{exact:true}).waitFor();
  await page.waitForTimeout(500);await page.locator('#transcript').evaluate(el=>{const m=el.querySelector('[data-index="35"]');el.scrollTop+=m.getBoundingClientRect().top-el.getBoundingClientRect().top+20;});await page.waitForTimeout(1000);assert.equal((await c.position(root,id)).index,35);
  const phone=await browser.newContext({viewport:{width:390,height:844},isMobile:true}),mobile=await phone.newPage();mobile.on('pageerror',e=>errors.push(e.message));await mobile.goto(base+'/');await mobile.locator('#password').fill('test-password');await mobile.locator('#login-form .primary').click();await mobile.locator('.character').click();await mobile.locator('.thread').click();await mobile.locator('[data-index="35"]').waitFor();assert.equal(await mobile.locator('.message').first().getAttribute('data-index'),'35');assert.ok(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await mobile.evaluate(()=>window.dispatchEvent(new Event('bookshop-home')));await mobile.locator('.character').waitFor();
+ await mobile.reload();await mobile.locator('.character').waitFor();assert.equal(await mobile.locator('.message').count(),0);
+ await mobile.locator('.character').click();await mobile.locator('.thread').click();await mobile.locator('[data-index="35"]').waitFor();assert.equal(await mobile.locator('.message').first().getAttribute('data-index'),'35');
  await mobile.locator('#font-size').click();await mobile.locator('#tools').click();await mobile.locator('#theme').selectOption('cocoa');await mobile.locator('[data-close=tools-dialog]').click();
  if(process.env.SILLY_SCREENSHOT_DIR)await mobile.screenshot({path:path.join(process.env.SILLY_SCREENSHOT_DIR,'mobile-040.png'),fullPage:true});
  // Bad display rules show an actionable error, not raw text, and recover after correction.
@@ -69,7 +72,7 @@ function png(){
  await page.locator('#first').click();await page.frameLocator('[data-index="0"] iframe').getByText('처음 0',{exact:true}).waitFor();await page.waitForTimeout(300);assert.equal((await c.position(root,secondId)).index,0);
  // Tools: real bundled glyphs and weight, persistence, account changes and recovery UI.
  await page.locator('#tools').click();
- for(const [key,family] of [['gothic','Bookshop Gothic'],['myeongjo','Bookshop Myeongjo'],['batang','Bookshop Batang']]){
+ for(const [key,family] of [['gothic','Bookshop Gothic'],['myeongjo','Bookshop Myeongjo'],['batang','Bookshop Batang'],['ridi','Bookshop RIDI']]){
    await page.locator('#font-family').selectOption(key);
    const fontFrame=page.frameLocator('[data-index="0"] iframe');
    const loaded=await fontFrame.locator('body').evaluate(async(el,family)=>{const fonts=await document.fonts.load('400 16px "'+family+'"','가나다 한글 English');return fonts.length>0&&fonts.every(f=>f.status==='loaded');},family);
@@ -78,14 +81,30 @@ function png(){
  await page.locator('#reading-bold').check();await page.locator('#reading-size').selectOption('20');
  const boldFrame=page.frameLocator('[data-index="0"] iframe');
  assert.equal(await boldFrame.locator('p').first().evaluate(el=>getComputedStyle(el).fontWeight),'700');
- assert.ok(await boldFrame.locator('body').evaluate(async()=>{const f=await document.fonts.load('700 20px "Bookshop Batang"','한글');return f.length>0&&f.every(x=>x.status==='loaded');}));
+ assert.ok(await boldFrame.locator('body').evaluate(async()=>{const f=await document.fonts.load('700 20px "Bookshop RIDI"','한글');return f.length>0&&f.every(x=>x.status==='loaded');}));
  assert.equal(await boldFrame.locator('body').evaluate(el=>getComputedStyle(el).fontSize),'20px');
  await page.setViewportSize({width:390,height:844});
  assert.ok(await page.locator('#tools-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth));
- if(process.env.SILLY_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SILLY_SCREENSHOT_DIR,'tools-060.png')});
+ if(process.env.SILLY_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SILLY_SCREENSHOT_DIR,'tools-061.png')});
  await page.locator('[data-close=tools-dialog]').click();await page.reload();await page.locator('[data-index="0"]').waitFor();
  await page.evaluate(()=>window.dispatchEvent(new Event('bookshop-open-tools')));await page.locator('#tools-dialog[open]').waitFor();
- assert.equal(await page.locator('#font-family').inputValue(),'batang');assert.equal(await page.locator('#reading-bold').isChecked(),true);assert.equal(await page.locator('#reading-size').inputValue(),'20');
+ assert.equal(await page.locator('#font-family').inputValue(),'ridi');assert.equal(await page.locator('#reading-bold').isChecked(),true);assert.equal(await page.locator('#reading-size').inputValue(),'20');
+ assert.equal(await page.locator('#account-form .primary').evaluate(el=>getComputedStyle(el).justifyContent),'center');
+ await page.locator('[data-close=tools-dialog]').click();
+ // Native home event clears the selection without losing per-chat reading positions.
+ await page.evaluate(()=>window.dispatchEvent(new Event('bookshop-home')));
+ await page.locator('.character').waitFor();assert.equal(await page.locator('.message').count(),0);
+ await Promise.all([page.waitForEvent('load'),page.evaluate(()=>window.dispatchEvent(new Event('bookshop-reload')))]);
+ await page.locator('.character').waitFor();assert.equal(await page.locator('.message').count(),0);
+ await page.locator('.character').click();await page.locator('.thread').filter({hasText:'처음 여는 대화'}).click();await page.locator('[data-index="0"]').waitFor();
+ await Promise.all([page.waitForEvent('load'),page.evaluate(()=>window.dispatchEvent(new Event('bookshop-reload')))]);
+ await page.locator('[data-index="0"]').waitFor();
+ await page.locator('#fold').click();await page.reload();await page.locator('.character').waitFor();assert.equal(await page.locator('.message').count(),0);
+ await page.locator('.thread').filter({hasText:'처음 여는 대화'}).click();await page.locator('[data-index="0"]').waitFor();
+ await page.locator('#home').click();await page.locator('.character').waitFor();assert.equal(await page.locator('.message').count(),0);
+ await page.locator('.character').click();await page.locator('.thread').filter({hasText:'처음 여는 대화'}).click();await page.locator('[data-index="0"]').waitFor();
+ console.log('PASS: home clears current reader; native reload preserves home/chat; mobile character-list reload stays home; selecting chat resumes saved position.');
+ await page.locator('#tools').click();
  await page.locator('#current-password').fill('wrong');await page.locator('#make-recovery').click();await page.locator('#account-message').getByText('현재 비밀번호가 맞지 않습니다.',{exact:true}).waitFor();
  await page.locator('#current-password').fill('test-password');await page.locator('#make-recovery').click();await page.locator('#recovery-result[open]').waitFor();
  const issued=await page.locator('#issued-code').inputValue();assert.match(issued,/^[a-f0-9]{8}(-[a-f0-9]{8}){7}$/);

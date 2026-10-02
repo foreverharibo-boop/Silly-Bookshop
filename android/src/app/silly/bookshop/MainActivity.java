@@ -3,9 +3,16 @@ package app.silly.bookshop;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Gravity;
+import android.view.View;
 import android.view.WindowInsets;
 import android.webkit.CookieManager;
 import android.webkit.HttpAuthHandler;
@@ -26,7 +33,12 @@ import java.net.URI;
 public final class MainActivity extends Activity {
     private static final String LIBRARY = "/api/plugins/silly-bookshop/";
     private WebView web;
-    private LinearLayout root;
+    private LinearLayout root,toolbar;
+    private Button[] toolbarButtons;
+    private final Handler themeHandler=new Handler(Looper.getMainLooper());
+    private boolean resumed=false,themePending=false;
+    private String toolbarTheme="";
+    private final Runnable themeTick=new Runnable(){@Override public void run(){if(!resumed)return;syncTheme();themeHandler.postDelayed(this,500);}};
     private volatile String server = "";
     private SharedPreferences prefs;
     private boolean loginRedirect = false;
@@ -41,12 +53,14 @@ public final class MainActivity extends Activity {
             return insets;
         });
         setContentView(root);
-        LinearLayout toolbar=new LinearLayout(this);toolbar.setPadding(dp(8),0,dp(8),0);toolbar.setBackgroundColor(Color.rgb(247,248,250));
-        Button home=new Button(this);home.setText("책방");home.setTextSize(12);home.setOnClickListener(v->openLibrary());
+        toolbar=new LinearLayout(this);toolbar.setPadding(dp(8),dp(5),dp(8),dp(5));toolbar.setBaselineAligned(false);toolbar.setGravity(Gravity.CENTER_VERTICAL);
+        Button home=new Button(this);home.setText("홈화면");home.setTextSize(12);home.setOnClickListener(v->openHome());
         Button tools=new Button(this);tools.setText("도구");tools.setTextSize(12);tools.setOnClickListener(v->openTools());
         Button address=new Button(this);address.setText("서버 주소");address.setTextSize(12);address.setOnClickListener(v->configure());
-        Button reload=new Button(this);reload.setText("화면\n새로고침");reload.setTextSize(11);reload.setOnClickListener(v->web.reload());
-        toolbar.addView(home,new LinearLayout.LayoutParams(0,dp(44),1));toolbar.addView(tools,new LinearLayout.LayoutParams(0,dp(44),1));toolbar.addView(address,new LinearLayout.LayoutParams(0,dp(44),1));toolbar.addView(reload,new LinearLayout.LayoutParams(0,dp(44),1));root.addView(toolbar);
+        Button reload=new Button(this);reload.setText("화면\n새로고침");reload.setTextSize(11);reload.setOnClickListener(v->reloadPage());
+        toolbarButtons=new Button[]{home,tools,address,reload};
+        for(Button button:toolbarButtons){button.setGravity(Gravity.CENTER);button.setIncludeFontPadding(false);button.setAllCaps(false);button.setMinWidth(0);button.setMinimumWidth(0);button.setMinHeight(0);button.setMinimumHeight(0);button.setPadding(dp(3),0,dp(3),0);button.setStateListAnimator(null);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(42),1);lp.setMargins(dp(3),0,dp(3),0);toolbar.addView(button,lp);}
+        root.addView(toolbar);applyTheme(prefs.getString("toolbar-theme","light"));
         WebView.setWebContentsDebuggingEnabled(false);
         web=new WebView(this);root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
         WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
@@ -63,7 +77,7 @@ public final class MainActivity extends Activity {
             @Override public void onReceivedHttpError(WebView view,WebResourceRequest req,WebResourceResponse response){
                 if(req.isForMainFrame()&&response.getStatusCode()==403&&!loginRedirect&&req.getUrl().getPath().startsWith(LIBRARY)){
                     loginRedirect=true;view.loadUrl(server+"/login");
-                    new AlertDialog.Builder(MainActivity.this).setMessage("실리 로그인이 필요할 수 있어요. 로그인한 다음 위쪽 ‘책방’을 눌러 주세요. IP 허용 목록에 막힌 경우에는 실리 설정을 확인해 주세요.").setPositiveButton("확인",null).show();
+                    new AlertDialog.Builder(MainActivity.this).setMessage("실리 로그인이 필요할 수 있어요. 로그인한 다음 위쪽 ‘홈화면’을 눌러 주세요. IP 허용 목록에 막힌 경우에는 실리 설정을 확인해 주세요.").setPositiveButton("확인",null).show();
                 }
             }
             @Override public void onReceivedHttpAuthRequest(WebView view,HttpAuthHandler handler,String host,String realm){
@@ -74,7 +88,7 @@ public final class MainActivity extends Activity {
                 EditText password=new EditText(MainActivity.this);password.setHint("비밀번호");password.setSingleLine(true);password.setInputType(129);form.addView(user);form.addView(password);
                 new AlertDialog.Builder(MainActivity.this).setTitle("실리 서버 로그인 · "+host).setView(form).setPositiveButton("로그인",(d,w)->{if(challengedServer.equals(server))handler.proceed(user.getText().toString(),password.getText().toString());else handler.cancel();}).setNegativeButton("취소",(d,w)->handler.cancel()).setOnCancelListener(d->handler.cancel()).show();
             }
-            @Override public void onPageFinished(WebView view,String url){CookieManager.getInstance().flush();}
+            @Override public void onPageFinished(WebView view,String url){CookieManager.getInstance().flush();syncTheme();}
         });
         server=prefs.getString("server","");
         try{if(!server.isEmpty())server=UrlPolicy.normalize(server);}catch(Exception e){server="";prefs.edit().remove("server").apply();}
@@ -85,6 +99,36 @@ public final class MainActivity extends Activity {
         return UrlPolicy.allowed(server,url);
     }
     private void openLibrary(){if(server.isEmpty()){configure();return;}loginRedirect=false;web.loadUrl(server+LIBRARY);}
+    private boolean readerPage(){try{String url=web.getUrl();return url!=null&&allowed(url)&&LIBRARY.equals(new URI(url).getPath());}catch(Exception e){return false;}}
+    private void openHome(){
+        if(server.isEmpty()){configure();return;}
+        if(readerPage()){web.evaluateJavascript("if(window.BookshopReady){window.dispatchEvent(new Event('bookshop-home'));}else{location.hash='home';}",null);return;}
+        loginRedirect=false;web.loadUrl(server+LIBRARY+"#home");
+    }
+    private void reloadPage(){
+        if(readerPage())web.evaluateJavascript("if(window.BookshopReady){window.dispatchEvent(new Event('bookshop-reload'));}else{location.reload();}",null);
+        else web.reload();
+    }
+    private void syncTheme(){
+        if(!resumed||themePending||web==null||!readerPage())return;
+        themePending=true;final String source=server;
+        // Read only a fixed theme identifier from our own top-level reader page.
+        // No JavaScript interface or arbitrary native actions are exposed.
+        web.evaluateJavascript("document.documentElement.dataset.theme||'light'",value->{
+            themePending=false;if(!resumed||!source.equals(server)||!readerPage()||value==null||value.length()>24)return;
+            try{Object parsed=new org.json.JSONTokener(value).nextValue();if(parsed instanceof String)applyTheme((String)parsed);}catch(Exception ignored){}
+        });
+    }
+    private void applyTheme(String name){
+        String[] palette=ToolbarTheme.colors(name);if(palette==null||name.equals(toolbarTheme))return;toolbarTheme=name;
+        int paper=Color.parseColor(palette[0]),side=Color.parseColor(palette[1]),ink=Color.parseColor(palette[2]),line=Color.parseColor(palette[3]),selected=Color.parseColor(palette[4]);
+        root.setBackgroundColor(paper);toolbar.setBackgroundColor(paper);
+        for(Button button:toolbarButtons){GradientDrawable shape=new GradientDrawable();shape.setColor(side);shape.setCornerRadius(dp(8));shape.setStroke(dp(1),line);button.setBackground(new RippleDrawable(ColorStateList.valueOf(selected),shape,null));button.setTextColor(ink);}
+        getWindow().setStatusBarColor(paper);getWindow().setNavigationBarColor(paper);
+        int flags=getWindow().getDecorView().getSystemUiVisibility(),mask=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        getWindow().getDecorView().setSystemUiVisibility(ToolbarTheme.dark(name)?flags&~mask:flags|mask);
+        prefs.edit().putString("toolbar-theme",name).apply();
+    }
     private void openTools(){
         if(server.isEmpty()){configure();return;}
         try{
@@ -106,7 +150,7 @@ public final class MainActivity extends Activity {
         }));dialog.show();
     }
     @Override public void onBackPressed(){if(web.canGoBack())web.goBack();else super.onBackPressed();}
-    @Override protected void onPause(){super.onPause();web.onPause();CookieManager.getInstance().flush();}
-    @Override protected void onResume(){super.onResume();if(web!=null)web.onResume();}
-    @Override protected void onDestroy(){if(web!=null){root.removeView(web);web.destroy();}super.onDestroy();}
+    @Override protected void onPause(){resumed=false;themeHandler.removeCallbacks(themeTick);super.onPause();web.onPause();CookieManager.getInstance().flush();}
+    @Override protected void onResume(){super.onResume();if(web!=null)web.onResume();resumed=true;themeHandler.removeCallbacks(themeTick);themeHandler.post(themeTick);}
+    @Override protected void onDestroy(){resumed=false;themeHandler.removeCallbacksAndMessages(null);if(web!=null){root.removeView(web);web.destroy();}super.onDestroy();}
 }
