@@ -1,6 +1,9 @@
 package app.silly.bookshop;
 
 import android.app.Activity;
+import android.app.KeyguardManager;
+import android.content.Intent;
+import org.json.JSONObject;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
@@ -42,6 +45,7 @@ public final class MainActivity extends Activity {
     private volatile String server = "";
     private SharedPreferences prefs;
     private boolean loginRedirect = false;
+    private boolean exporting=false;private int exportGeneration=0;private String exportServer="";
     private int dp(int n) {return (int)(getResources().getDisplayMetrics().density*n+.5f);}
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -55,7 +59,7 @@ public final class MainActivity extends Activity {
         setContentView(root);
         toolbar=new LinearLayout(this);toolbar.setPadding(dp(8),dp(5),dp(8),dp(5));toolbar.setBaselineAligned(false);toolbar.setGravity(Gravity.CENTER_VERTICAL);
         Button home=new Button(this);home.setText("홈화면");home.setTextSize(12);home.setOnClickListener(v->openHome());
-        Button tools=new Button(this);tools.setText("도구");tools.setTextSize(12);tools.setOnClickListener(v->openTools());
+        Button tools=new Button(this);tools.setText("도구");tools.setTextSize(12);tools.setOnClickListener(v->toolMenu());
         Button address=new Button(this);address.setText("서버 주소");address.setTextSize(12);address.setOnClickListener(v->configure());
         Button reload=new Button(this);reload.setText("화면\n새로고침");reload.setTextSize(11);reload.setOnClickListener(v->reloadPage());
         toolbarButtons=new Button[]{home,tools,address,reload};
@@ -63,7 +67,7 @@ public final class MainActivity extends Activity {
         root.addView(toolbar);applyTheme(prefs.getString("toolbar-theme","light"));
         WebView.setWebContentsDebuggingEnabled(false);
         web=new WebView(this);root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
-        WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        WebSettings s=web.getSettings();s.setUserAgentString(s.getUserAgentString()+" SillyBookshop/0.7.0");s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
         if(Build.VERSION.SDK_INT>=26)s.setSafeBrowsingEnabled(true);
         s.setSavePassword(false);
         CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
@@ -114,9 +118,9 @@ public final class MainActivity extends Activity {
         themePending=true;final String source=server;
         // Read only a fixed theme identifier from our own top-level reader page.
         // No JavaScript interface or arbitrary native actions are exposed.
-        web.evaluateJavascript("document.documentElement.dataset.theme||'light'",value->{
-            themePending=false;if(!resumed||!source.equals(server)||!readerPage()||value==null||value.length()>24)return;
-            try{Object parsed=new org.json.JSONTokener(value).nextValue();if(parsed instanceof String)applyTheme((String)parsed);}catch(Exception ignored){}
+        web.evaluateJavascript("JSON.stringify({theme:document.documentElement.dataset.theme||'light',focus:document.documentElement.dataset.focus==='true'})",value->{
+            themePending=false;if(!resumed||!source.equals(server)||!readerPage()||value==null||value.length()>160)return;
+            try{Object parsed=new org.json.JSONTokener(value).nextValue();if(parsed instanceof String){JSONObject state=new JSONObject((String)parsed);applyTheme(state.optString("theme"));toolbar.setVisibility(state.optBoolean("focus",false)?View.GONE:View.VISIBLE);}}catch(Exception ignored){}
         });
     }
     private void applyTheme(String name){
@@ -129,6 +133,34 @@ public final class MainActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(ToolbarTheme.dark(name)?flags&~mask:flags|mask);
         prefs.edit().putString("toolbar-theme",name).apply();
     }
+    private void toolMenu(){
+        new AlertDialog.Builder(this).setTitle("책방 도구").setItems(new String[]{"테마·글꼴·읽기 설정","현재 대화 오프라인 보관","오프라인 책장 열기"},(d,w)->{if(w==0)openTools();else if(w==1)confirmOfflineSave();else startActivity(new Intent(this,OfflineActivity.class));}).show();
+    }
+    private void confirmOfflineSave(){
+        if(exporting)return;
+        if(!readerPage()){new AlertDialog.Builder(this).setMessage("온라인 책방에서 보관할 대화를 먼저 열어 주세요.").setPositiveButton("확인",null).show();return;}
+        KeyguardManager k=(KeyguardManager)getSystemService(KEYGUARD_SERVICE);
+        if(!k.isDeviceSecure()){new AlertDialog.Builder(this).setMessage("폰에 화면 잠금(PIN·패턴·비밀번호)을 설정한 뒤 사용할 수 있어요.").setPositiveButton("확인",null).show();return;}
+        new AlertDialog.Builder(this).setTitle("이 대화를 폰에 보관할까요?").setMessage("저장된 번역·표시 정규식을 적용한 현재 대화를 암호화해서 보관해요. 서버의 삭제나 비밀번호 변경과 별개로 남으므로, 필요 없으면 오프라인 책장에서 삭제해 주세요.").setNegativeButton("취소",null).setPositiveButton("보관",(d,w)->{exportServer=server;Intent intent=k.createConfirmDeviceCredentialIntent("실리 책방","오프라인 보관을 위해 폰 잠금을 확인해 주세요.");if(intent!=null)startActivityForResult(intent,70);}).show();
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==70&&result==RESULT_OK&&readerPage()&&server.equals(exportServer))startExport();}
+    private boolean exportValid(int ticket){return exporting&&ticket==exportGeneration&&!isFinishing()&&exportServer.equals(server)&&readerPage();}
+    private void startExport(){
+        exporting=true;int ticket=++exportGeneration;android.widget.Toast.makeText(this,"대화를 보관하고 있어요. 완료할 때까지 앱을 열어 두세요.",android.widget.Toast.LENGTH_LONG).show();
+        web.evaluateJavascript("window.BookshopOfflineExport ? (window.BookshopOfflineExport.begin(),true) : false",value->{if(!exportValid(ticket))return;if(!"true".equals(value)){exportError("서버 플러그인을 먼저 업데이트해 주세요.");return;}pollExport(ticket,0);});
+    }
+    private void pollExport(int ticket,int tries){
+        if(!exportValid(ticket))return;if(tries>180){exportError("보관 시간이 초과됐어요. 연결 상태를 확인해 주세요.");return;}
+        web.evaluateJavascript("JSON.stringify(window.BookshopOfflineExport.status())",value->{if(!exportValid(ticket))return;try{JSONObject state=new JSONObject((String)new org.json.JSONTokener(value).nextValue());String status=state.optString("state");if(status.equals("error")){exportError(state.optString("message","보관하지 못했어요."));return;}if(status.equals("ready")){int length=state.getInt("length");if(length<1||length>18*1024*1024)throw new Exception();pullExport(ticket,length,new StringBuilder());return;}themeHandler.postDelayed(()->pollExport(ticket,tries+1),500);}catch(Exception e){exportError("보관 데이터를 확인할 수 없어요.");}});
+    }
+    private void pullExport(int ticket,int length,StringBuilder out){
+        if(!exportValid(ticket))return;
+        web.evaluateJavascript("window.BookshopOfflineExport.chunk("+out.length()+")",value->{if(!exportValid(ticket))return;try{Object parsed=new org.json.JSONTokener(value).nextValue();if(!(parsed instanceof String))throw new Exception();String part=(String)parsed;if(part.length()!=Math.min(32768,length-out.length()))throw new Exception();out.append(part);if(out.length()<length){pullExport(ticket,length,out);return;}
+            web.evaluateJavascript("window.BookshopOfflineExport.clear()",null);String source=exportServer,json=out.toString();out.setLength(0);
+            new Thread(()->{try{OfflineVault.save(getApplicationContext(),source,json);runOnUiThread(()->{if(ticket!=exportGeneration)return;exporting=false;android.widget.Toast.makeText(this,"오프라인 보관 완료 · 도구에서 오프라인 책장을 열어 보세요.",android.widget.Toast.LENGTH_LONG).show();});}catch(Exception e){runOnUiThread(()->{if(ticket==exportGeneration)exportError("보관하지 못했어요. 폰 잠금을 다시 확인하거나 보관함 용량을 확인해 주세요.");});}},"bookshop-offline-save").start();
+        }catch(Exception e){exportError("보관 데이터를 확인할 수 없어요.");}});
+    }
+    private void exportError(String message){exporting=false;exportGeneration++;if(web!=null)web.evaluateJavascript("window.BookshopOfflineExport?.clear()",null);if(!isFinishing())new AlertDialog.Builder(this).setMessage(message).setPositiveButton("확인",null).show();}
     private void openTools(){
         if(server.isEmpty()){configure();return;}
         try{
@@ -150,7 +182,7 @@ public final class MainActivity extends Activity {
         }));dialog.show();
     }
     @Override public void onBackPressed(){if(web.canGoBack())web.goBack();else super.onBackPressed();}
-    @Override protected void onPause(){resumed=false;themeHandler.removeCallbacks(themeTick);super.onPause();web.onPause();CookieManager.getInstance().flush();}
+    @Override protected void onPause(){if(exporting){exporting=false;exportGeneration++;web.evaluateJavascript("window.BookshopOfflineExport?.clear()",null);}resumed=false;themeHandler.removeCallbacks(themeTick);super.onPause();web.onPause();CookieManager.getInstance().flush();}
     @Override protected void onResume(){super.onResume();if(web!=null)web.onResume();resumed=true;themeHandler.removeCallbacks(themeTick);themeHandler.post(themeTick);}
     @Override protected void onDestroy(){resumed=false;themeHandler.removeCallbacksAndMessages(null);if(web!=null){root.removeView(web);web.destroy();}super.onDestroy();}
 }

@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
-const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs');
-const BASE='/api/plugins/silly-bookshop',VERSION='0.6.1-test.1';
+const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs'),reading=require('./reading.cjs');
+const BASE='/api/plugins/silly-bookshop',VERSION='0.7.0-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -97,7 +97,11 @@ async function init(router){
         if(mode==='password'){revoke(root);setCookie(req,res,'',0);}
         res.json({ok:true,...result});
     }));
-    router.get('/catalog',wrap(async(req,res)=>res.json(await heavyRead(()=>c.catalog(req.user.directories,{withCharacters:true})))));
+    router.get('/catalog',wrap(async(req,res)=>res.json(await heavyRead(async()=>{const data=await c.catalog(req.user.directories,{withCharacters:true});return {...data,recent:await reading.recent(req.user.directories,data.chats)};}))));
+    router.post('/visit',wrap(async(req,res)=>res.json(await reading.visit(req.user.directories,req.body.id))));
+    router.get('/bookmarks',wrap(async(req,res)=>res.json(await reading.bookmarks(req.user.directories,req.query.id))));
+    router.post('/bookmarks',wrap(async(req,res)=>res.json(await heavyRead(()=>reading.bookmarks(req.user.directories,req.body.id,req.body)))));
+    router.get('/offline',wrap(async(req,res)=>res.json(await heavyRead(()=>reading.snapshot(req.user.directories,req.query.id,()=>req.aborted||res.destroyed)))));
     router.get('/avatar',wrap(async(req,res)=>res.type('png').send(await avatarRead(()=>c.avatar(req.user.directories,req.query.name)))));
     router.get('/chat',wrap(async(req,res)=>{
         const result=await heavyRead(async()=>{

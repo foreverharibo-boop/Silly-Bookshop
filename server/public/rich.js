@@ -15,7 +15,7 @@ function a(e,t){return n(e)||r(e,t)||o(e,t)||i()}function o(e,n){if(e){if(typeof
 'use strict';
 // No remote assets and no code supplied by chat messages executes in this reader.
 window.BookshopRich=(()=>{
-    const fontFaces=['Gothic','Myeongjo','Batang'].flatMap((name,i)=>['Regular','Bold'].map((weight,j)=>'@font-face{font-family:"Bookshop '+name+'";font-style:normal;font-weight:'+(j?700:400)+';font-display:swap;src:url("/api/plugins/silly-bookshop/fonts/'+['NanumGothic','NanumMyeongjo','GowunBatang'][i]+'-'+weight+'.woff2?v=0.6.1-test.1") format("woff2")}')).join('')+'@font-face{font-family:"Bookshop RIDI";font-style:normal;font-weight:400;font-display:swap;src:url("/api/plugins/silly-bookshop/fonts/RIDIBatang-Regular.woff2?v=0.6.1-test.1") format("woff2")}';
+    const fontFaces=['Gothic','Myeongjo','Batang'].flatMap((name,i)=>['Regular','Bold'].map((weight,j)=>'@font-face{font-family:"Bookshop '+name+'";font-style:normal;font-weight:'+(j?700:400)+';font-display:swap;src:url("/api/plugins/silly-bookshop/fonts/'+['NanumGothic','NanumMyeongjo','GowunBatang'][i]+'-'+weight+'.woff2?v=0.7.0-test.1") format("woff2")}')).join('')+'@font-face{font-family:"Bookshop RIDI";font-style:normal;font-weight:400;font-display:swap;src:url("/api/plugins/silly-bookshop/fonts/RIDIBatang-Regular.woff2?v=0.7.0-test.1") format("woff2")}';
     const forbidden=['script','iframe','frame','frameset','object','embed','base','meta','link','form','input','textarea','select','button','audio','video','source','track','animate','animatetransform','set','foreignobject'];
     const config={FORBID_TAGS:forbidden,FORBID_ATTR:['srcset','href','xlink:href','action','formaction','poster','background','ping','autofocus','tabindex','contenteditable','is'],ADD_TAGS:['style'],ADD_ATTR:['style','open'],FORCE_BODY:true};
     const networkValue=/url\s*\(|image-set\s*\(|https?:|\/\/|\\/i;
@@ -40,7 +40,7 @@ window.BookshopRich=(()=>{
         // Same-origin lets only the parent measure height. No allow-scripts, navigation,
         // downloads, popups, forms, or external network access are granted.
         frame.setAttribute('sandbox','allow-same-origin');frame.setAttribute('referrerpolicy','no-referrer');
-        frame.srcdoc='<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src \'self\'; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\'"><style>html,body{margin:0;padding:0;background:transparent;color:var(--ink,#282e39);font-family:var(--reading-family,system-ui,sans-serif);font-weight:var(--reading-weight,400);font-size:var(--reading-size,16px);line-height:1.85;overflow-wrap:anywhere}body{display:flow-root;min-width:0}*{box-sizing:border-box}img,svg{max-width:100%;height:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{max-width:100%;border-collapse:collapse}td,th{padding:6px;border:1px solid #8886}p:first-child{margin-top:0}p:last-child{margin-bottom:0}a{pointer-events:none}summary{cursor:pointer}</style><style>'+fontFaces+'</style></head><body>'+safe+'</body></html>';
+        frame.srcdoc='<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src \'self\'; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\'"><style>html,body{margin:0;padding:0;background:transparent;color:var(--ink,#282e39);font-family:var(--reading-family,system-ui,sans-serif);font-weight:var(--reading-weight,400);font-size:var(--reading-size,16px);line-height:var(--reading-line,1.85);overflow-wrap:anywhere}body{display:flow-root;min-width:0}*{box-sizing:border-box}img,svg{max-width:100%;height:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{max-width:100%;border-collapse:collapse}td,th{padding:6px;border:1px solid #8886}p:first-child{margin-top:0}p:last-child{margin-bottom:0}a{pointer-events:none}summary{cursor:pointer}</style><style>'+fontFaces+'</style></head><body>'+safe+'</body></html>';
         let observer;
         const resize=()=>{
             if(!frame.isConnected){observer?.disconnect();return;}
@@ -48,14 +48,14 @@ window.BookshopRich=(()=>{
         };
         frame.addEventListener('load',()=>{
             if(!frame.isConnected)return;
-            try{const doc=frame.contentDocument;syncFrame(frame);doc.addEventListener('click',e=>{if(e.target.closest('a,form'))e.preventDefault();});observer=new ResizeObserver(resize);observer.observe(doc.body);resize();}catch{}
+            try{const doc=frame.contentDocument;syncFrame(frame);doc.addEventListener('click',e=>{if(e.target.closest('a,form'))e.preventDefault();if(!e.target.closest('a,summary,details,button,input')&&!doc.getSelection()?.toString())window.dispatchEvent(new Event('bookshop-content-tap'));});observer=new ResizeObserver(resize);observer.observe(doc.body);resize();}catch{}
         });
         frame._bookshopDispose=()=>observer?.disconnect();host.append(frame);
     }
     function syncFrame(frame){
         const root=frame.contentDocument?.documentElement;if(!root)return;
         const styles=getComputedStyle(document.documentElement);
-        for(const name of ['--ink','--muted','--paper','--side','--blue','--line','--reading-size','--reading-family','--reading-weight'])root.style.setProperty(name,styles.getPropertyValue(name));
+        for(const name of ['--ink','--muted','--paper','--side','--blue','--line','--reading-size','--reading-family','--reading-weight','--reading-line'])root.style.setProperty(name,styles.getPropertyValue(name));
         root.style.colorScheme=styles.colorScheme;
         let override=frame.contentDocument.getElementById('bookshop-reading-style');
         if(!override){override=frame.contentDocument.createElement('style');override.id='bookshop-reading-style';frame.contentDocument.head.append(override);}
@@ -63,5 +63,5 @@ window.BookshopRich=(()=>{
     }
     function refresh(root){root.querySelectorAll('iframe.rich-output').forEach(frame=>{try{syncFrame(frame);}catch{}});}
     function clear(root){root.querySelectorAll('iframe.rich-output').forEach(frame=>frame._bookshopDispose?.());}
-    return {mount,refresh,clear,version:'0.6.1-test.1'};
+    return {mount,refresh,clear,version:'0.7.0-test.1'};
 })();
