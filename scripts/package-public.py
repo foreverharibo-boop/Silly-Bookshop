@@ -4,7 +4,7 @@ from pathlib import Path
 import hashlib,json,re,sys,zipfile
 root=Path(__file__).resolve().parents[1]
 top={'.gitignore','.gitattributes','package.json','setup.cjs','README.md','SECURITY.md','TESTING.md','PUBLISHING.md','CHANGELOG.md'}
-trees={'server','scripts'}
+trees={'server','scripts','client'}
 android_files={'android/AndroidManifest.xml','android/build.sh'}
 android_trees=('android/src/','android/res/','android/tests/')
 allowed_suffix={'.cjs','.js','.html','.css','.svg','.json','.py','.java','.xml','.sh','.md'}

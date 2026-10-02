@@ -55,9 +55,9 @@ public final class MainActivity extends Activity {
         s.setSavePassword(false);
         CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
         web.setWebViewClient(new WebViewClient(){
-            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest req){return !allowed(req.getUrl().toString());}
+            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest req){return !(!req.isForMainFrame() && isReaderFrame(req.getUrl().toString())) && !allowed(req.getUrl().toString());}
             @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest req){
-                if(allowed(req.getUrl().toString()))return null;
+                if(allowed(req.getUrl().toString())||(!req.isForMainFrame()&&isReaderFrame(req.getUrl().toString())))return null;
                 return new WebResourceResponse("text/plain","UTF-8",403,"Blocked",null,new ByteArrayInputStream(new byte[0]));
             }
             @Override public void onReceivedSslError(WebView view,SslErrorHandler handler,android.net.http.SslError error){handler.cancel();runOnUiThread(()->new AlertDialog.Builder(MainActivity.this).setMessage("서버 인증서를 확인할 수 없습니다. 주소와 HTTPS 설정을 확인해 주세요.").setPositiveButton("확인",null).show());}
@@ -81,6 +81,7 @@ public final class MainActivity extends Activity {
         try{if(!server.isEmpty())server=UrlPolicy.normalize(server);}catch(Exception e){server="";prefs.edit().remove("server").apply();}
         if(server.isEmpty())configure();else openLibrary();
     }
+    private boolean isReaderFrame(String url){return "about:srcdoc".equals(url)||"about:blank".equals(url);}
     private boolean allowed(String url){
         return UrlPolicy.allowed(server,url);
     }

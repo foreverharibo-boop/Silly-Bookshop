@@ -1,0 +1,55 @@
+'use strict';
+// No remote assets and no code supplied by chat messages executes in this reader.
+window.BookshopRich=(()=>{
+    const converter=new showdown.Converter({tables:true,strikethrough:true,simpleLineBreaks:true,ghCodeBlocks:true,tasklists:true,openLinksInNewWindow:false});
+    const forbidden=['script','iframe','frame','frameset','object','embed','base','meta','link','form','input','textarea','select','button','audio','video','source','track','animate','animatetransform','set','foreignobject'];
+    const config={FORBID_TAGS:forbidden,FORBID_ATTR:['srcset','href','xlink:href','action','formaction','poster','background','ping','autofocus','tabindex','contenteditable','is'],ADD_TAGS:['style'],ADD_ATTR:['style','open'],FORCE_BODY:true};
+    const networkValue=/url\s*\(|image-set\s*\(|https?:|\/\/|\\/i;
+    function cleanDeclarations(style){for(const name of Array.from(style))if(networkValue.test(style.getPropertyValue(name)))style.removeProperty(name);return style.cssText;}
+    function cleanSheet(css){
+        try{const sheet=new CSSStyleSheet();sheet.replaceSync(css);
+            function rules(list){return Array.from(list).map(rule=>{if([3,10].includes(rule.type))return '';if(rule.style)cleanDeclarations(rule.style);if(rule.cssRules?.length){const head=rule.cssText.slice(0,rule.cssText.indexOf('{'));return head+'{'+(rule.style?.cssText||'')+rules(rule.cssRules)+'}';}return networkValue.test(rule.cssText)?'':rule.cssText;}).join('\n');}
+            return rules(sheet.cssRules);
+        }catch{return '';}
+    }
+    DOMPurify.addHook('uponSanitizeElement',el=>{if(el.tagName?.toLowerCase()==='style')el.textContent=cleanSheet(el.textContent);});
+    DOMPurify.addHook('uponSanitizeAttribute',(el,data)=>{
+        if(data.attrName==='src'&&!/^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(data.attrValue))data.keepAttr=false;
+        if(data.attrName==='style'){const style=document.createElement('span').style;style.cssText=data.attrValue;data.attrValue=cleanDeclarations(style);}
+    });
+    function html(text,rendered){
+        if(rendered)return text;
+        // Silly HTML cards are often wrapped in an html code fence.
+        return converter.makeHtml(text.replace(/(?:^|\n)[ \t]*```(?:html|htm)\s*\n([\s\S]*?)\n[ \t]*```/gi,(_,body)=>'\n'+body+'\n'));
+    }
+    function mount(host,text,{rendered=false,onResize=change=>change()}={}){
+        const rich=rendered||/<(?:[a-z][\w:-]*)(?:\s|>|\/)/i.test(text);
+        const markup=html(text,rendered);
+        if(!rich){host.innerHTML=DOMPurify.sanitize(markup,{...config,FORBID_TAGS:[...forbidden,'style'],FORBID_ATTR:[...config.FORBID_ATTR,'style']});return;}
+        const safe=DOMPurify.sanitize(markup,config);
+        const frame=document.createElement('iframe');frame.className='rich-output';frame.title='메시지 HTML · 읽기 전용';
+        // Same-origin lets only the parent measure height. No allow-scripts, navigation,
+        // downloads, popups, forms, or external network access are granted.
+        frame.setAttribute('sandbox','allow-same-origin');frame.setAttribute('referrerpolicy','no-referrer');
+        frame.srcdoc='<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src \'none\'; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\'"><style>html,body{margin:0;padding:0;background:transparent;color:var(--ink,#282e39);font-family:system-ui,sans-serif;font-size:var(--reading-size,16px);line-height:1.85;overflow-wrap:anywhere}body{display:flow-root;min-width:0}*{box-sizing:border-box}img,svg{max-width:100%;height:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{max-width:100%;border-collapse:collapse}td,th{padding:6px;border:1px solid #8886}p:first-child{margin-top:0}p:last-child{margin-bottom:0}a{pointer-events:none}summary{cursor:pointer}</style></head><body>'+safe+'</body></html>';
+        let observer;
+        const resize=()=>{
+            if(!frame.isConnected){observer?.disconnect();return;}
+            try{const doc=frame.contentDocument;if(!doc?.body)return;const height=Math.min(200000,Math.max(24,Math.ceil(doc.body.getBoundingClientRect().height),doc.body.scrollHeight));if(Math.abs(frame.offsetHeight-height)>1)onResize(()=>frame.style.height=height+'px');}catch{}
+        };
+        frame.addEventListener('load',()=>{
+            if(!frame.isConnected)return;
+            try{const doc=frame.contentDocument;syncFrame(frame);doc.addEventListener('click',e=>{if(e.target.closest('a,form'))e.preventDefault();});observer=new ResizeObserver(resize);observer.observe(doc.body);resize();}catch{}
+        });
+        frame._bookshopDispose=()=>observer?.disconnect();host.append(frame);
+    }
+    function syncFrame(frame){
+        const root=frame.contentDocument?.documentElement;if(!root)return;
+        const styles=getComputedStyle(document.documentElement);
+        for(const name of ['--ink','--muted','--paper','--side','--blue','--line','--reading-size'])root.style.setProperty(name,styles.getPropertyValue(name));
+        root.style.colorScheme=document.documentElement.dataset.theme==='dark'?'dark':'light';
+    }
+    function refresh(root){root.querySelectorAll('iframe.rich-output').forEach(frame=>{try{syncFrame(frame);}catch{}});}
+    function clear(root){root.querySelectorAll('iframe.rich-output').forEach(frame=>frame._bookshopDispose?.());}
+    return {mount,refresh,clear};
+})();

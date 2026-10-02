@@ -1,0 +1,9 @@
+{
+  "display_name": "실리 책방 · 화면 연동",
+  "loading_order": 100,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "author": "Silly Bookshop",
+  "version": "0.3.0-test.1"
+}

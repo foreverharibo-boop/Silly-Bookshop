@@ -4,14 +4,17 @@ const $=id=>document.getElementById(id), base='/api/plugins/sili-library';
 const prefs={get(k,f){try{return localStorage.getItem('sili-library:'+k)||f;}catch{return f;}},set(k,v){try{localStorage.setItem('sili-library:'+k,v);}catch{}}};
 let chats=[],active='',character='',revision='',start=0,total=0,epoch=0,loading=false,unlocked=false,restoring=false;
 let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
+const avatarCache=new Map();
 const scroller=$('transcript');
-let font=Number(prefs.get('font','16')),display=prefs.get('display','original');
+let font=Number(prefs.get('font','16')),display=prefs.get('display-v3','all');
 if(![15,16,18,20].includes(font))font=16;
 document.documentElement.style.setProperty('--reading-size',font+'px');
 document.documentElement.dataset.theme=prefs.get('theme',matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
-$('display-mode').textContent=display==='display'?'표시문':'원문';
+const modes={all:'모두 보기',display:'실리 화면',original:'원문'};
+if(!modes[display])display='all';
+$('display-mode').textContent=modes[display];
 function status(text){$('status').textContent=text;}
-function gate(message){unlocked=false;epoch++;$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;scroller.replaceChildren();$('characters').replaceChildren();$('threads').replaceChildren();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
+function gate(message){unlocked=false;epoch++;$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;BookshopRich.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();for(const pending of avatarCache.values())pending.then(url=>{if(url)URL.revokeObjectURL(url);});avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
 async function api(route,body,keepalive=false){
     const options={credentials:'same-origin',cache:'no-store',redirect:'error'};
     if(body!==undefined){
@@ -24,19 +27,16 @@ async function api(route,body,keepalive=false){
     return data;
 }
 function node(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
-function inline(el,text){
-    // Text nodes only. Chat HTML, scripts, remote images and links never execute.
-    const regex=/(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)/g;
-    let end=0,count=0;
-    for(const match of text.matchAll(regex)){
-        if(++count>128)break;
-        el.append(document.createTextNode(text.slice(end,match.index)));
-        const s=match[0],double=s.startsWith('**');
-        el.append(node(double?'strong':s[0]==='`'?'code':'em','',s.slice(double?2:1,double?-2:-1)));
-        end=match.index+s.length;
+function avatar(name,file,className='avatar'){
+    const box=node('span',className,Array.from(name)[0]||'·');
+    if(file){const img=node('img');img.alt=name+' 프로필';img.loading='lazy';img.onerror=()=>img.remove();
+        if(!avatarCache.has(file))avatarCache.set(file,fetch(base+'/avatar?name='+encodeURIComponent(file),{credentials:'same-origin',cache:'no-store'}).then(async r=>r.ok?URL.createObjectURL(await r.blob()):null).catch(()=>null));
+        avatarCache.get(file).then(url=>{if(url&&unlocked){img.src=url;box.append(img);}});
     }
-    el.append(document.createTextNode(text.slice(end)));
+    return box;
 }
+function layoutChange(change){const p=restoring?lastPosition:position();change();if(p)restore(p);}
+function output(host,text,rendered=false){BookshopRich.mount(host,text,{rendered,onResize:layoutChange});}
 function position(){
     const top=scroller.getBoundingClientRect().top;
     for(const el of scroller.querySelectorAll('.message')){
@@ -65,29 +65,49 @@ $('fold').onclick=()=>fold(!$('library').classList.contains('collapsed'));
 function renderLists(){
     const query=$('search').value.trim().toLowerCase();
     const visible=chats.filter(c=>(c.character+' '+c.title).toLowerCase().includes(query));
-    const people=[...new Set(visible.map(c=>c.character))];
-    if(!people.includes(character))character=people[0]||'';
-    $('count').textContent=String(people.length);$('characters').replaceChildren();$('threads').replaceChildren();
-    for(const name of people){
-        const b=node('button','character');b.setAttribute('aria-pressed',String(name===character));
-        b.append(node('span','avatar',Array.from(name)[0]),node('span','character-name',name),node('small','',String(visible.filter(c=>c.character===name).length)));
-        b.onclick=()=>{character=name;renderLists();};$('characters').append(b);
+    const groups=new Map();for(const c of visible){if(!groups.has(c.character))groups.set(c.character,[]);groups.get(c.character).push(c);}
+    $('count').textContent=String(groups.size);$('characters').replaceChildren();
+    let n=0;
+    for(const [name,list]of groups){
+        const section=node('section','character-group'),b=node('button','character');
+        const expanded=name===character,id='threads-'+n++;
+        b.setAttribute('aria-expanded',String(expanded));b.setAttribute('aria-controls',id);b.setAttribute('aria-pressed',String(expanded));
+        b.append(avatar(name,list[0].avatar),node('span','character-name',name),node('small','',String(list.length)),node('span','chevron',expanded?'⌃':'⌄'));
+        b.onclick=()=>{character=character===name?'':name;renderLists();};section.append(b);
+        if(expanded){const threads=node('nav','threads');threads.id=id;threads.setAttribute('aria-label',name+' 대화 목록');
+            for(const c of list){const t=node('button','thread');t.setAttribute('aria-pressed',String(active===c.id));t.append(node('strong','',c.title),node('small','',new Date(c.modified).toLocaleDateString('ko-KR')));t.onclick=()=>openChat(c.id);threads.append(t);}
+            section.append(threads);
+        }
+        $('characters').append(section);
     }
-    for(const c of visible.filter(c=>c.character===character)){
-        const b=node('button','thread');b.setAttribute('aria-pressed',String(active===c.id));
-        b.append(node('strong','',c.title),node('small','',new Date(c.modified).toLocaleDateString('ko-KR')));
-        b.onclick=()=>openChat(c.id);$('threads').append(b);
-    }
-    if(!visible.length)$('threads').append(node('p','notice',query?'검색 결과가 없어요.':'저장된 채팅이 아직 없어요.'));
+    if(!visible.length)$('characters').append(node('p','notice',query?'검색 결과가 없어요.':'저장된 채팅이 아직 없어요.'));
 }
 async function catalog(){const ticket=epoch,data=await api('/catalog');if(!unlocked||ticket!==epoch)return;chats=data.chats;renderLists();}
 function renderChat(data,pos){
-    revision=data.revision;start=data.start;total=data.total;scroller.replaceChildren();
+    revision=data.revision;start=data.start;total=data.total;BookshopRich.clear(scroller);scroller.replaceChildren();
     if(start>0){const b=node('button','page-button','이전 대화 읽기 ↑');b.onclick=()=>page(Math.max(0,start-120));scroller.append(b);}
     for(const m of data.messages){
         const item=node('article','message'+(m.user?' user':'')+(m.system?' system':''));item.dataset.index=String(m.index);
-        const by=node('div','byline');by.append(node('span','',m.name),node('small','',m.system?'시스템 · '+m.date:m.date));
-        const bubble=node('div','bubble');inline(bubble,display==='display'&&m.displayText!==null?m.displayText:m.text);item.append(by,bubble);scroller.append(item);
+        const by=node('div','byline');
+        const meta=chats.find(c=>c.id===active);
+        if(!m.user&&!m.system)by.append(avatar(m.name,meta?.avatar,'avatar message-avatar'));
+        by.append(node('span','',m.name),node('small','',m.system?'시스템 · '+m.date:m.date));
+        const bubble=node('div','bubble');item.append(by,bubble);scroller.append(item);
+        const variants=m.translations||[],preferred=m.displayText??variants[0]?.text??m.text;
+        const mainText=display==='original'?m.text:preferred;
+        const captured=display!=='original'&&typeof m.renderedHtml==='string';
+        if(captured)bubble.append(node('p','variant-label','실리 화면'));
+        else if(mainText!==m.text)bubble.append(node('p','variant-label','번역 · 표시문'));
+        const content=node('div','message-content');bubble.append(content);output(content,captured?m.renderedHtml:mainText,captured);
+        if(display==='all'){
+            for(const variant of variants){
+                if(!captured&&variant.text===mainText)continue;
+                const block=node('section','translation-block');block.append(node('p','variant-label',variant.label));const body=node('div','message-content');block.append(body);bubble.append(block);output(body,variant.text);
+            }
+            if(captured||mainText!==m.text){const original=node('details','original-output');original.append(node('summary','','원문 펼치기'));const body=node('div','message-content');original.append(body);let drawn=false;original.addEventListener('toggle',()=>{if(original.open&&!drawn){drawn=true;output(body,m.text);}});bubble.append(original);}
+        }
+        if(/<[^>]+>/.test(m.text)||captured){const source=node('details','source-output');source.append(node('summary','','저장된 원문 코드'));source.append(node('pre','',m.text));bubble.append(source);}
+
     }
     if(data.nextStart<total){const b=node('button','page-button','다음 대화 읽기 ↓');b.onclick=()=>page(data.nextStart);scroller.append(b);}
     if(!total)scroller.append(node('p','notice','아직 메시지가 없는 대화예요.'));
@@ -103,7 +123,7 @@ async function openChat(id,requestedStart){
     const meta=chats.find(c=>c.id===id);if(meta){character=meta.character;$('person').textContent=meta.character+'와 나눈 대화';$('title').textContent=meta.title;}
     prefs.set('last',id);renderLists();
     if(matchMedia('(max-width:640px)').matches)fold(true);
-    scroller.replaceChildren(node('p','notice','이야기를 펼치고 있어요…'));status('대화 불러오는 중');
+    BookshopRich.clear(scroller);scroller.replaceChildren(node('p','notice','이야기를 펼치고 있어요…'));status('대화 불러오는 중');
     try{
         const data=await api('/chat?id='+encodeURIComponent(id)+(requestedStart===undefined?'':'&start='+requestedStart));
         if(ticket!==epoch)return;
@@ -130,9 +150,9 @@ async function enter(){
 }
 $('login-form').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/login',{password:$('password').value});await enter();}catch(err){$('gate-status').textContent=err.message;}finally{b.disabled=false;}};
 $('search').oninput=renderLists;
-$('font-size').onclick=()=>{const p=position();font=({15:16,16:18,18:20,20:15})[font];prefs.set('font',String(font));document.documentElement.style.setProperty('--reading-size',font+'px');$('font-size').textContent='가 '+font;restore(p);};
-$('display-mode').onclick=async()=>{display=display==='display'?'original':'display';prefs.set('display',display);$('display-mode').textContent=display==='display'?'표시문':'원문';revision='';await poll();};
-$('theme').onclick=()=>{const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;prefs.set('theme',value);};
+$('font-size').onclick=()=>{const p=position();font=({15:16,16:18,18:20,20:15})[font];prefs.set('font',String(font));document.documentElement.style.setProperty('--reading-size',font+'px');$('font-size').textContent='가 '+font;BookshopRich.refresh(scroller);restore(p);};
+$('display-mode').onclick=async()=>{display=({all:'display',display:'original',original:'all'})[display];prefs.set('display-v3',display);$('display-mode').textContent=modes[display];revision='';await poll();};
+$('theme').onclick=()=>{const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;prefs.set('theme',value);BookshopRich.refresh(scroller);};
 $('latest').onclick=()=>page(Math.max(0,total-1));
 $('lock').onclick=async()=>{const saving=save();gate('책방을 잠그고 있어요.');try{await Promise.race([saving,new Promise(resolve=>setTimeout(resolve,1500))]);await api('/logout',{});$('gate-status').textContent='책방을 잠갔어요.';}catch(e){$('gate-status').textContent='화면은 가렸지만 서버 로그아웃을 확인하지 못했어요. 연결 후 다시 확인해 주세요.';}};
 scroller.addEventListener('scroll',()=>{if(restoring||loading||!active)return;scrollDirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(()=>save(),650);},{passive:true});

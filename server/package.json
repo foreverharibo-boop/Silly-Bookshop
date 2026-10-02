@@ -1,1 +1,1 @@
-{"name":"sili-library-server","version":"0.2.0-test.1","private":true,"main":"index.cjs","engines":{"node":">=18"},"scripts":{"test":"node --test tests/*.test.cjs"}}
+{"name":"sili-library-server","version":"0.3.0-test.1","private":true,"main":"index.cjs","engines":{"node":">=18"},"scripts":{"test":"node --test tests/*.test.cjs"}}
