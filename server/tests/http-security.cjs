@@ -31,7 +31,7 @@ const catalog=await fetch(base+'/catalog',{headers:{Cookie:cookie}});assert.equa
 assert.equal((await fetch(base+'/catalog',{headers:{Cookie:cookie,'x-fixture-user':'b'}})).status,401);
 const otherHostStatus=await new Promise((resolve,reject)=>{require('node:http').get(base+'/catalog',{headers:{Cookie:cookie,Host:'other.invalid'}},res=>{res.resume();resolve(res.statusCode);}).on('error',reject);});assert.equal(otherHostStatus,401);
 assert.equal((await fetch(base+'/catalog',{headers:{Cookie:cookie,Origin:'https://evil.invalid'}})).status,403);
-const id=c.encode(['group','chat.jsonl']);const read=await fetch(base+'/chat?id='+id,{headers:{Cookie:cookie}});const data=await read.json();assert.equal(data.messages[0].text,'private-a');
+const id=c.encode(['group','chat.jsonl']);const read=await fetch(base+'/chat?id='+id,{headers:{Cookie:cookie}});const data=await read.json();assert.equal(data.messages[0].synced,false);assert.ok(!JSON.stringify(data).includes('private-a'));assert.equal(data.displayPolicy,'screen-only-v2');
 assert.equal((await fetch(base+'/chat?id='+c.encode(['group','../auth.json']),{headers:{Cookie:cookie}})).status,400);
 assert.equal((await fetch(base+'/chat?id='+id+'&start=-1',{headers:{Cookie:cookie}})).status,400);
 const unchanged=await (await fetch(base+'/chat?id='+id+'&revision='+encodeURIComponent(data.revision),{headers:{Cookie:cookie}})).json();assert.equal(unchanged.unchanged,true);
@@ -40,7 +40,7 @@ assert.equal((await post('/position',{id,position:{index:0,fraction:0.4}},{Cooki
 assert.equal(await c.position(users.b.root,id),null);
 const large=path.join(users.a.groupChats,'large.jsonl');const fh=await fs.open(large,'w');await fh.truncate(32*1024*1024+1);await fh.close();assert.equal((await fetch(base+'/chat?id='+c.encode(['group','large.jsonl']),{headers:{Cookie:cookie}})).status,413);
 const pages=Array.from({length:6},(_,i)=>JSON.stringify({name:'test',mes:String(i)+':'+('a'.repeat(500000))})).join('\n');await fs.writeFile(path.join(users.a.groupChats,'paged.jsonl'),pages);
-const pagedId=c.encode(['group','paged.jsonl']);const first=await (await fetch(base+'/chat?id='+pagedId,{headers:{Cookie:cookie}})).json();assert.ok(first.messages.length<6);assert.equal(first.nextStart,first.messages.length);
+const pagedId=c.encode(['group','paged.jsonl']);const capture=require('../capture.cjs');const parsed=c.parseChat(pages).messages;await capture.write(users.a,pagedId,parsed.map(m=>({index:m.index,sourceText:m.text,displayText:null,name:m.name,user:m.user,date:m.date,html:'<div>'+('a'.repeat(500000))+'</div>'})),2);const first=await (await fetch(base+'/chat?id='+pagedId,{headers:{Cookie:cookie}})).json();assert.ok(first.messages.length<6);assert.equal(first.nextStart,first.messages.length);
 const second=await (await fetch(base+'/chat?id='+pagedId+'&start='+first.nextStart,{headers:{Cookie:cookie}})).json();assert.equal(second.messages[0].index,first.nextStart);assert.equal(second.nextStart,6);
 // Normal logout invalidates the bearer even if a caller keeps the old cookie.
 assert.equal((await post('/logout',{}, {Cookie:cookie})).status,200);assert.equal((await fetch(base+'/catalog',{headers:{Cookie:cookie}})).status,401);

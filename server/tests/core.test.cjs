@@ -5,7 +5,7 @@ const fs=require('node:fs/promises');
 const os=require('node:os');
 const path=require('node:path');
 const c=require('../core.cjs');
-async function fixture(t){const root=await fs.mkdtemp(path.join(os.tmpdir(),'sili-test-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));const dirs={root,chats:path.join(root,'chats'),groupChats:path.join(root,'group chats'),groups:path.join(root,'groups')};for(const dir of Object.values(dirs))await fs.mkdir(dir,{recursive:true});await fs.mkdir(path.join(dirs.chats,'캐릭터'));return dirs;}
+async function fixture(t){const root=await fs.mkdtemp(path.join(os.tmpdir(),'sili-test-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));const dirs={root,chats:path.join(root,'chats'),groupChats:path.join(root,'group chats'),groups:path.join(root,'groups'),characters:path.join(root,'characters')};for(const dir of Object.values(dirs))await fs.mkdir(dir,{recursive:true});await fs.mkdir(path.join(dirs.chats,'캐릭터'));await fs.writeFile(path.join(dirs.characters,'캐릭터.png'),'card');return dirs;}
 test('path traversal, encoded traversal and symlinks cannot read outside chats',async t=>{
     const d=await fixture(t);await fs.writeFile(path.join(d.root,'secret.jsonl'),'secret');
     for(const parts of [['chat','..','secret.jsonl'],['chat','캐릭터','../../secret.jsonl'],['group','/secret.jsonl'],['group','secret.json'],['x','secret.jsonl']])assert.throws(()=>c.decode(c.encode(parts)));
@@ -30,4 +30,18 @@ test('concurrent position writes preserve separate chats and user separation',as
 });
 test('password checks use salted hash',async()=>{
     const salt='test-salt',hash=await c.passwordHash('correct-pass',salt);assert.equal(await c.verifyPassword('correct-pass',{salt,hash}),true);assert.equal(await c.verifyPassword('wrong-pass',{salt,hash}),false);
+});
+
+test('catalog follows current cards and group metadata, including empty characters, without deleting orphan history',async t=>{
+    const d=await fixture(t),file=path.join(d.chats,'캐릭터','대화.jsonl'),original='{"mes":"saved history"}';
+    await fs.writeFile(file,original);await fs.writeFile(path.join(d.characters,'새 친구.png'),'card');
+    await fs.writeFile(path.join(d.groupChats,'current.jsonl'),original);await fs.writeFile(path.join(d.groupChats,'orphan.jsonl'),original);
+    await fs.writeFile(path.join(d.groups,'g.json'),JSON.stringify({name:'현재 그룹',chat_id:'current'}));
+    let data=await c.catalog(d,{withCharacters:true});assert.equal(data.characters.length,3);assert.equal(data.chats.length,2);
+    assert.ok(data.characters.some(p=>p.character==='새 친구'));assert.ok(!data.chats.some(c=>c.title==='orphan'));
+    await fs.unlink(path.join(d.characters,'캐릭터.png'));await fs.unlink(path.join(d.groups,'g.json'));
+    data=await c.catalog(d,{withCharacters:true});assert.deepEqual(data.characters.map(p=>p.character),['새 친구']);assert.equal(data.chats.length,0);
+    assert.equal(await fs.readFile(file,'utf8'),original);assert.equal(await fs.readFile(path.join(d.groupChats,'current.jsonl'),'utf8'),original);
+    await fs.writeFile(path.join(d.characters,'캐릭터.png'),'card');await fs.unlink(file);
+    data=await c.catalog(d,{withCharacters:true});assert.equal(data.characters.length,2);assert.equal(data.chats.length,0);
 });

@@ -7,7 +7,6 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowInsets;
-import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.HttpAuthHandler;
 import android.webkit.SslErrorHandler;
@@ -34,7 +33,6 @@ public final class MainActivity extends Activity {
     private int dp(int n) {return (int)(getResources().getDisplayMetrics().density*n+.5f);}
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE,WindowManager.LayoutParams.FLAG_SECURE);
         prefs=getSharedPreferences("sili-library",MODE_PRIVATE);
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.WHITE);
         root.setOnApplyWindowInsetsListener((v,insets)->{

@@ -18,8 +18,14 @@ test('capture matches persisted current message and is invalidated by edits, tra
     const d=await fixture(t),id=c.encode(['chat','A','one.jsonl']),file=path.join(d.chats,'A','one.jsonl');
     let m={mes:'hello',name:'A',send_date:'date',extra:{display_text:'안녕'}};const raw=JSON.stringify(m);await fs.writeFile(file,raw);
     const item={index:0,sourceText:m.mes,displayText:m.extra.display_text,name:'A',user:false,date:'date',html:'<div>visible</div>'};
-    assert.deepEqual((await capture.write(d,id,[item])).accepted,[0]);const saved=(await capture.read(d.root,id))[0];assert.equal(saved.sourceHash,c.parseChat(raw).messages[0].sourceHash);assert.ok(await capture.revision(d.root,id));assert.equal(await fs.readFile(file,'utf8'),raw);
-    m.extra.display_text='새 번역';await fs.writeFile(file,JSON.stringify(m));assert.deepEqual((await capture.write(d,id,[item])).accepted,[]);assert.notEqual(saved.sourceHash,c.parseChat(JSON.stringify(m)).messages[0].sourceHash);
-    await assert.rejects(()=>capture.write(d,id,[{...item,html:'a'.repeat(512*1024+1)}]),{status:400});
+    assert.deepEqual((await capture.write(d,id,[item],2)).accepted,[0]);const saved=(await capture.read(d.root,id))[0];assert.equal(saved.sourceHash,c.parseChat(raw).messages[0].sourceHash);assert.ok(await capture.revision(d.root,id));assert.equal(await fs.readFile(file,'utf8'),raw);
+    m.extra.display_text='새 번역';await fs.writeFile(file,JSON.stringify(m));assert.deepEqual((await capture.write(d,id,[item],2)).accepted,[]);assert.notEqual(saved.sourceHash,c.parseChat(JSON.stringify(m)).messages[0].sourceHash);
+    await assert.rejects(()=>capture.write(d,id,[{...item,html:'a'.repeat(512*1024+1)}],2),{status:400});
     const other=await fixture(t);assert.deepEqual(await capture.read(other.root,id),{});
+});
+
+test('reader projection never exposes raw text or unfiltered translations, including old captures',()=>{
+ const m=c.parseChat(JSON.stringify({name:'A',mes:'<think>SECRET</think>visible',extra:{display_text:'번역 SECRET'}})).messages[0];
+ for(const snapshot of [null,{html:'old SECRET',sourceHash:m.sourceHash},{schema:2,html:'old SECRET',sourceHash:'stale'}]){const view=capture.screenMessage(m,snapshot);assert.equal(view.synced,false);assert.ok(!JSON.stringify(view).includes('SECRET'));assert.equal(view.text,undefined);assert.equal(view.translations,undefined);}
+ const view=capture.screenMessage(m,{schema:2,html:'<div>visible</div>',sourceHash:m.sourceHash,capturedAt:1});assert.equal(view.synced,true);assert.equal(view.renderedHtml,'<div>visible</div>');assert.ok(!JSON.stringify(view).includes('SECRET'));
 });

@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs');
-const BASE='/api/plugins/sili-library',VERSION='0.3.0-test.1';
+const BASE='/api/plugins/sili-library',VERSION='0.3.2-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -17,7 +17,7 @@ async function init(router){
     const sessions=new Map();
     const loginIp=security.bucket(10,15*60000),loginUser=security.bucket(30,15*60000);
     const statusRate=security.bucket(120,60000),apiRate=security.bucket(240,60000),captureRate=security.bucket(30,60000);
-    const hashes=security.concurrency(2),heavyRead=security.concurrency(2);
+    const hashes=security.concurrency(2),heavyRead=security.concurrency(2),avatarRead=security.concurrency(2);
     function authenticated(req,conf){
         const key=cookieKey(req),s=sessions.get(key),now=Date.now();
         if(!s)return null;
@@ -40,7 +40,7 @@ async function init(router){
         next();
     }));
     router.get('/',(req,res)=>req.originalUrl.split('?')[0].endsWith('/')?res.sendFile(path.join(__dirname,'public/index.html')):res.redirect(BASE+'/'));
-    for(const name of ['app.js','rich.js','style.css','icon.svg','vendor/purify.min.js','vendor/showdown.min.js'])router.get('/'+name,(req,res)=>res.sendFile(path.join(__dirname,'public',name)));
+    for(const name of ['app.js','rich.js','style.css','icon.svg','vendor/purify.min.js'])router.get('/'+name,(req,res)=>res.sendFile(path.join(__dirname,'public',name)));
     router.get('/status',wrap(async(req,res)=>{
         statusRate(req.socket.remoteAddress);
         const conf=await c.authConfig(req.user.directories.root);
@@ -67,7 +67,7 @@ async function init(router){
     router.post('/capture',wrap(async(req,res)=>{
         captureRate(req.user.directories.root);
         if(!await c.authConfig(req.user.directories.root))throw c.fail(409,'책방 비밀번호를 먼저 설정해 주세요.');
-        res.json(await heavyRead(()=>capture.write(req.user.directories,req.body.id,req.body.items)));
+        res.json(await heavyRead(()=>capture.write(req.user.directories,req.body.id,req.body.items,req.body.schema)));
     }));
     router.use(wrap(async(req,res,next)=>{
         const session=authenticated(req,await c.authConfig(req.user.directories.root));
@@ -75,13 +75,13 @@ async function init(router){
         apiRate(cookieKey(req));session.expires=Math.min(Date.now()+30*60000,session.absolute);next();
     }));
     router.post('/logout',(req,res)=>{sessions.delete(cookieKey(req));setCookie(req,res,'',0);res.json({ok:true});});
-    router.get('/catalog',wrap(async(req,res)=>res.json({chats:await heavyRead(()=>c.catalog(req.user.directories))})));
-    router.get('/avatar',wrap(async(req,res)=>res.type('png').send(await heavyRead(()=>c.avatar(req.user.directories,req.query.name)))));
+    router.get('/catalog',wrap(async(req,res)=>res.json(await heavyRead(()=>c.catalog(req.user.directories,{withCharacters:true})))));
+    router.get('/avatar',wrap(async(req,res)=>res.type('png').send(await avatarRead(()=>c.avatar(req.user.directories,req.query.name)))));
     router.get('/chat',wrap(async(req,res)=>{
         const result=await heavyRead(async()=>{
             const file=await c.chatFile(req.user.directories,req.query.id),stat=await fs.stat(file);
             if(stat.size>32*1024*1024)throw c.fail(413,'32MB를 넘는 대화는 현재 버전에서 열 수 없습니다.');
-            const revision=[stat.ino,stat.mtimeMs,stat.ctimeMs,stat.size,await capture.revision(req.user.directories.root,req.query.id)].join(':');
+            const revision=['screen-2',stat.ino,stat.mtimeMs,stat.ctimeMs,stat.size,await capture.revision(req.user.directories.root,req.query.id)].join(':');
             if(req.query.revision===revision)return {unchanged:true,revision};
             const parsed=c.parseChat(await c.readText(file,32*1024*1024));
             const rendered=await capture.read(req.user.directories.root,req.query.id);
@@ -90,14 +90,13 @@ async function init(router){
             if(!Number.isSafeInteger(requested)||requested<0)throw c.fail(400,'잘못된 페이지입니다.');
             const start=Math.min(requested,Math.max(0,parsed.messages.length-1));
             const messages=[];let size=0;
-            for(const m of parsed.messages.slice(start,start+150)){
-                const snapshot=rendered[m.index];
-                if(snapshot?.sourceHash===m.sourceHash){m.renderedHtml=snapshot.html;m.capturedAt=snapshot.capturedAt;}
-                const bytes=Buffer.byteLength(JSON.stringify(m));
+            for(const m of parsed.messages.slice(start,start+30)){
+                const view=capture.screenMessage(m,rendered[m.index]);
+                const bytes=Buffer.byteLength(JSON.stringify(view));
                 if(messages.length&&size+bytes>2*1024*1024)break;
-                messages.push(m);size+=bytes;
+                messages.push(view);size+=bytes;
             }
-            return {revision,start,total:parsed.messages.length,messages,nextStart:start+messages.length,skipped:parsed.skipped,saved};
+            return {displayPolicy:'screen-only-v2',revision,start,total:parsed.messages.length,messages,nextStart:start+messages.length,skipped:parsed.skipped,saved};
         });
         res.json(result);
     }));

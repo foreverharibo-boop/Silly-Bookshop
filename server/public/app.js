@@ -2,36 +2,63 @@
 (() => {
 const $=id=>document.getElementById(id), base='/api/plugins/sili-library';
 const prefs={get(k,f){try{return localStorage.getItem('sili-library:'+k)||f;}catch{return f;}},set(k,v){try{localStorage.setItem('sili-library:'+k,v);}catch{}}};
-let chats=[],active='',character='',revision='',start=0,total=0,epoch=0,loading=false,unlocked=false,restoring=false;
+let people=[],catalogRequest=0,chats=[],active='',character='',revision='',start=0,total=0,epoch=0,loading=false,unlocked=false,restoring=false;
 let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
-const avatarCache=new Map();
+const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
-let font=Number(prefs.get('font','16')),display=prefs.get('display-v3','all');
+let font=Number(prefs.get('font','16'));
+if(!window.BookshopRich){$('gate-status').textContent='화면 표시 파일을 불러오지 못했어요. 깃허브 파일 전체를 업데이트하고 새로고침해 주세요.';return;}
 if(![15,16,18,20].includes(font))font=16;
 document.documentElement.style.setProperty('--reading-size',font+'px');
 document.documentElement.dataset.theme=prefs.get('theme',matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
-const modes={all:'모두 보기',display:'실리 화면',original:'원문'};
-if(!modes[display])display='all';
-$('display-mode').textContent=modes[display];
 function status(text){$('status').textContent=text;}
-function gate(message){unlocked=false;epoch++;$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;BookshopRich.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();for(const pending of avatarCache.values())pending.then(url=>{if(url)URL.revokeObjectURL(url);});avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
+function gate(message){unlocked=false;epoch++;catalogRequest++;authEpoch++;avatarObserver?.disconnect();avatarQueue.splice(0).forEach(job=>job.resolve(null));avatarFailures.clear();$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;BookshopRich.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';people=[];chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
+async function request(url,options={},timeout=20000){
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
+    try{const r=await fetch(url,{...options,signal:controller.signal});const bytes=await r.arrayBuffer();return {ok:r.ok,status:r.status,headers:r.headers,bytes};}
+    catch(e){if(e.name==='AbortError')throw new Error('서버 응답 시간이 초과됐어요. 서버 연결을 확인하고 다시 시도해 주세요.');throw e;}
+    finally{clearTimeout(timer);}
+}
 async function api(route,body,keepalive=false){
     const options={credentials:'same-origin',cache:'no-store',redirect:'error'};
     if(body!==undefined){
-        if(!csrf){const tokenResponse=await fetch('/csrf-token',{credentials:'same-origin',cache:'no-store'});csrf=(await tokenResponse.json()).token;}
+        if(!csrf){const response=await request('/csrf-token',{credentials:'same-origin',cache:'no-store'});try{csrf=JSON.parse(new TextDecoder().decode(response.bytes)).token;}catch{throw new Error('실리 로그인이 필요해요. 실리 로그인 화면을 먼저 열어 주세요.');}}
         Object.assign(options,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,'X-Sili-Request':'1'},body:JSON.stringify(body),keepalive});
     }
-    const response=await fetch(base+route,options);
-    let data;try{data=await response.json();}catch{throw new Error('실리 로그인이 필요하거나 서버 응답을 읽을 수 없습니다.');}
+    const response=await request(base+route,options);
+    let data;try{data=JSON.parse(new TextDecoder().decode(response.bytes));}catch{throw new Error('실리 로그인 화면으로 이동했거나 서버가 잘못된 응답을 보냈어요.');}
     if(!response.ok){if(response.status===401&&route!=='/login')gate('다시 책방 잠금을 풀어 주세요.');if(response.status===403)csrf='';throw new Error(data.error||'요청에 실패했습니다.');}
     return data;
 }
 function node(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
+function pumpAvatars(){
+    while(avatarBusy<2&&avatarQueue.length){const job=avatarQueue.shift();avatarBusy++;
+        (async()=>{let url=null;
+            try{for(let attempt=0;attempt<3;attempt++){
+                if(!unlocked||job.session!==authEpoch)break;
+                const response=await request(base+'/avatar?name='+encodeURIComponent(job.file),{credentials:'same-origin',cache:'no-store'},12000);
+                if(response.status===429&&attempt<2){await new Promise(r=>setTimeout(r,500*(attempt+1)));continue;}
+                if(!response.ok)throw new Error('사진 요청 실패 ('+response.status+')');
+                const blob=new Blob([response.bytes],{type:'image/png'});
+                url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);});break;
+            }}catch{}finally{
+                if(!url&&job.session===authEpoch){avatarCache.delete(job.file);avatarFailures.set(job.file,Date.now()+10000);}
+                job.resolve(job.session===authEpoch?url:null);avatarBusy--;pumpAvatars();
+            }
+        })();
+    }
+}
+const avatarObserver=typeof IntersectionObserver==='function'?new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting){avatarObserver.unobserve(entry.target);entry.target._loadPhoto?.();}},{rootMargin:'100px'}):null;
 function avatar(name,file,className='avatar'){
     const box=node('span',className,Array.from(name)[0]||'·');
-    if(file){const img=node('img');img.alt=name+' 프로필';img.loading='lazy';img.onerror=()=>img.remove();
-        if(!avatarCache.has(file))avatarCache.set(file,fetch(base+'/avatar?name='+encodeURIComponent(file),{credentials:'same-origin',cache:'no-store'}).then(async r=>r.ok?URL.createObjectURL(await r.blob()):null).catch(()=>null));
-        avatarCache.get(file).then(url=>{if(url&&unlocked){img.src=url;box.append(img);}});
+    if(file){const session=authEpoch;
+        box._loadPhoto=()=>{
+            if(!unlocked||session!==authEpoch)return;
+            if((avatarFailures.get(file)||0)>Date.now()){box.title='사진을 다시 불러오려면 위의 새로고침을 눌러 주세요.';return;}
+            if(!avatarCache.has(file))avatarCache.set(file,new Promise(resolve=>{avatarQueue.push({file,resolve,session});pumpAvatars();}));
+            avatarCache.get(file).then(url=>{if(url&&unlocked&&session===authEpoch){const img=node('img');img.alt=name+' 프로필';img.src=url;img.onerror=()=>{img.remove();avatarCache.delete(file);box.title='캐릭터 사진을 읽지 못했어요.';};box.append(img);}else box.title='사진을 다시 불러오려면 위의 새로고침을 눌러 주세요.';});
+        };
+        if(avatarObserver)avatarObserver.observe(box);else box._loadPhoto();
     }
     return box;
 }
@@ -63,29 +90,51 @@ async function save(keepalive=false){
 function fold(value){const p=position();$('library').classList.toggle('collapsed',value);$('fold').setAttribute('aria-expanded',String(!value));$('fold').setAttribute('aria-label',value?'목록 펼치기':'목록 접기');prefs.set('collapsed',String(value));if(active&&p)restore(p);}
 $('fold').onclick=()=>fold(!$('library').classList.contains('collapsed'));
 function renderLists(){
-    const query=$('search').value.trim().toLowerCase();
-    const visible=chats.filter(c=>(c.character+' '+c.title).toLowerCase().includes(query));
-    const groups=new Map();for(const c of visible){if(!groups.has(c.character))groups.set(c.character,[]);groups.get(c.character).push(c);}
-    $('count').textContent=String(groups.size);$('characters').replaceChildren();
-    let n=0;
-    for(const [name,list]of groups){
-        const section=node('section','character-group'),b=node('button','character');
-        const expanded=name===character,id='threads-'+n++;
+    $('characters').querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
+    const query=$('search').value.trim().toLowerCase(),groups=new Map();
+    for(const person of people){
+        const own=chats.filter(c=>(c.characterKey||c.character)===person.key);
+        const list=person.character.toLowerCase().includes(query)?own:own.filter(c=>c.title.toLowerCase().includes(query));
+        if(!query||person.character.toLowerCase().includes(query)||list.length)groups.set(person.key,{person,list});
+    }
+    $('count').textContent=String(groups.size);$('characters').replaceChildren();let n=0;
+    for(const [key,{person,list}]of groups){
+        const name=person.character,section=node('section','character-group'),b=node('button','character');
+        const expanded=key===character,id='threads-'+n++;
         b.setAttribute('aria-expanded',String(expanded));b.setAttribute('aria-controls',id);b.setAttribute('aria-pressed',String(expanded));
-        b.append(avatar(name,list[0].avatar),node('span','character-name',name),node('small','',String(list.length)),node('span','chevron',expanded?'⌃':'⌄'));
-        b.onclick=()=>{character=character===name?'':name;renderLists();};section.append(b);
+        b.append(avatar(name,person.avatar),node('span','character-name',name),node('small','',String(list.length)),node('span','chevron',expanded?'⌃':'⌄'));
+        b.onclick=()=>{character=character===key?'':key;renderLists();};section.append(b);
         if(expanded){const threads=node('nav','threads');threads.id=id;threads.setAttribute('aria-label',name+' 대화 목록');
             for(const c of list){const t=node('button','thread');t.setAttribute('aria-pressed',String(active===c.id));t.append(node('strong','',c.title),node('small','',new Date(c.modified).toLocaleDateString('ko-KR')));t.onclick=()=>openChat(c.id);threads.append(t);}
+            if(!list.length)threads.append(node('p','notice','아직 저장된 대화가 없어요.'));
             section.append(threads);
         }
         $('characters').append(section);
     }
-    if(!visible.length)$('characters').append(node('p','notice',query?'검색 결과가 없어요.':'저장된 채팅이 아직 없어요.'));
+    if(!groups.size)$('characters').append(node('p','notice',query?'검색 결과가 없어요.':'현재 실리에 등록된 캐릭터가 없어요.'));
 }
-async function catalog(){const ticket=epoch,data=await api('/catalog');if(!unlocked||ticket!==epoch)return;chats=data.chats;renderLists();}
+function clearSelection(message){
+    epoch++;loading=false;clearTimeout(saveTimer);scrollDirty=false;
+    scroller.querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
+    BookshopRich.clear(scroller);scroller.replaceChildren(node('p','notice',message));
+    active='';revision='';lastPosition=null;start=0;total=0;prefs.set('last','');
+    $('title').textContent='대화를 골라 주세요';$('person').textContent='현재 실리의 책장';$('latest').hidden=true;
+    status(message);if(matchMedia('(max-width:640px)').matches)fold(false);
+}
+async function catalog(){
+    const ticket=++catalogRequest,data=await api('/catalog');
+    if(!unlocked||ticket!==catalogRequest)return false;
+    if(!Array.isArray(data.characters))throw new Error('목록 갱신을 위해 서버 플러그인을 업데이트하고 재시작해 주세요.');
+    chats=data.chats;people=data.characters;
+    if(active&&!chats.some(c=>c.id===active))clearSelection('이 대화나 캐릭터는 현재 실리 목록에서 없어졌어요. 다른 대화를 골라 주세요.');
+    if(character&&!people.some(p=>p.key===character))character='';
+    renderLists();return true;
+}
 function renderChat(data,pos){
+    if(data.displayPolicy!=='screen-only-v2')throw new Error('서버 플러그인과 화면 버전이 달라요. 서버를 업데이트한 뒤 재시작해 주세요.');
+    scroller.querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
     revision=data.revision;start=data.start;total=data.total;BookshopRich.clear(scroller);scroller.replaceChildren();
-    if(start>0){const b=node('button','page-button','이전 대화 읽기 ↑');b.onclick=()=>page(Math.max(0,start-120));scroller.append(b);}
+    if(start>0){const b=node('button','page-button','이전 대화 읽기 ↑');b.onclick=()=>page(Math.max(0,start-30));scroller.append(b);}
     for(const m of data.messages){
         const item=node('article','message'+(m.user?' user':'')+(m.system?' system':''));item.dataset.index=String(m.index);
         const by=node('div','byline');
@@ -93,20 +142,15 @@ function renderChat(data,pos){
         if(!m.user&&!m.system)by.append(avatar(m.name,meta?.avatar,'avatar message-avatar'));
         by.append(node('span','',m.name),node('small','',m.system?'시스템 · '+m.date:m.date));
         const bubble=node('div','bubble');item.append(by,bubble);scroller.append(item);
-        const variants=m.translations||[],preferred=m.displayText??variants[0]?.text??m.text;
-        const mainText=display==='original'?m.text:preferred;
-        const captured=display!=='original'&&typeof m.renderedHtml==='string';
-        if(captured)bubble.append(node('p','variant-label','실리 화면'));
-        else if(mainText!==m.text)bubble.append(node('p','variant-label','번역 · 표시문'));
-        const content=node('div','message-content');bubble.append(content);output(content,captured?m.renderedHtml:mainText,captured);
-        if(display==='all'){
-            for(const variant of variants){
-                if(!captured&&variant.text===mainText)continue;
-                const block=node('section','translation-block');block.append(node('p','variant-label',variant.label));const body=node('div','message-content');block.append(body);bubble.append(block);output(body,variant.text);
-            }
-            if(captured||mainText!==m.text){const original=node('details','original-output');original.append(node('summary','','원문 펼치기'));const body=node('div','message-content');original.append(body);let drawn=false;original.addEventListener('toggle',()=>{if(original.open&&!drawn){drawn=true;output(body,m.text);}});bubble.append(original);}
+        if(m.synced&&typeof m.renderedHtml==='string'){
+            const content=node('div','message-content');bubble.append(content);
+            if(m.renderedHtml.trim()){
+                try{output(content,m.renderedHtml,true);}catch{content.textContent='이 메시지의 화면을 표시하지 못했어요. 새로고침하거나 실리에서 다시 연동해 주세요.';}
+            }else content.append(node('p','notice','실리에서 숨겨진 메시지예요.'));
+        }else{
+            bubble.classList.add('awaiting');bubble.append(node('p','','실리 화면 연동 대기'));
+            bubble.append(node('small','','실리에서 이 대화를 열고 메시지를 불러오면 자동으로 표시돼요. 숨긴 내용이 나오지 않도록 원문은 대신 표시하지 않아요.'));
         }
-        if(/<[^>]+>/.test(m.text)||captured){const source=node('details','source-output');source.append(node('summary','','저장된 원문 코드'));source.append(node('pre','',m.text));bubble.append(source);}
 
     }
     if(data.nextStart<total){const b=node('button','page-button','다음 대화 읽기 ↓');b.onclick=()=>page(data.nextStart);scroller.append(b);}
@@ -115,20 +159,23 @@ function renderChat(data,pos){
     $('latest').hidden=!total;
     lastPosition=pos||data.saved;
     restore(lastPosition);
-    status(data.skipped?'일부 줄을 읽지 못했어요. 원본 파일은 변경하지 않았어요.':'자동 연동 중 · '+total.toLocaleString()+'개 메시지');
+    const pending=data.messages.filter(m=>!m.synced).length;
+    status(pending?'현재 페이지 '+pending+'개 화면 연동 대기 · 실리에서 대화를 열어 주세요.':'실리 화면 연동 중 · '+total.toLocaleString()+'개 메시지');
 }
 async function openChat(id,requestedStart){
-    await save();const ticket=++epoch;loading=true;
+    const saving=save(),ticket=++epoch;loading=true;
     active=id;revision='';lastPosition=null;scrollDirty=false;
-    const meta=chats.find(c=>c.id===id);if(meta){character=meta.character;$('person').textContent=meta.character+'와 나눈 대화';$('title').textContent=meta.title;}
+    const meta=chats.find(c=>c.id===id);if(meta){character=meta.characterKey||meta.character;$('person').textContent=meta.character+'와 나눈 대화';$('title').textContent=meta.title;}
     prefs.set('last',id);renderLists();
     if(matchMedia('(max-width:640px)').matches)fold(true);
-    BookshopRich.clear(scroller);scroller.replaceChildren(node('p','notice','이야기를 펼치고 있어요…'));status('대화 불러오는 중');
+    BookshopRich.clear(scroller);scroller.replaceChildren(node('p','notice','대화를 불러오고 있어요…'));status('대화 불러오는 중');
     try{
+        await Promise.race([saving,new Promise(resolve=>setTimeout(resolve,1000))]);
+        if(!unlocked||ticket!==epoch)return;
         const data=await api('/chat?id='+encodeURIComponent(id)+(requestedStart===undefined?'':'&start='+requestedStart));
-        if(ticket!==epoch)return;
+        if(!unlocked||ticket!==epoch)return;
         renderChat(data,requestedStart===undefined?data.saved:{index:requestedStart,fraction:0});
-    }catch(e){if(ticket===epoch){scroller.replaceChildren(node('p','notice',e.message));status('대화를 불러오지 못했어요.');}}
+    }catch(e){if(ticket===epoch){BookshopRich.clear(scroller);scroller.replaceChildren(node('p','notice',e.message));const retry=node('button','page-button','다시 불러오기');retry.onclick=()=>openChat(id,requestedStart);scroller.append(retry);status('불러오기 실패 · 다시 시도할 수 있어요.');}}
     finally{if(ticket===epoch)loading=false;}
 }
 async function page(n){await openChat(active,n);scrollDirty=true;await save();}
@@ -151,7 +198,16 @@ async function enter(){
 $('login-form').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/login',{password:$('password').value});await enter();}catch(err){$('gate-status').textContent=err.message;}finally{b.disabled=false;}};
 $('search').oninput=renderLists;
 $('font-size').onclick=()=>{const p=position();font=({15:16,16:18,18:20,20:15})[font];prefs.set('font',String(font));document.documentElement.style.setProperty('--reading-size',font+'px');$('font-size').textContent='가 '+font;BookshopRich.refresh(scroller);restore(p);};
-$('display-mode').onclick=async()=>{display=({all:'display',display:'original',original:'all'})[display];prefs.set('display-v3',display);$('display-mode').textContent=modes[display];revision='';await poll();};
+$('refresh').onclick=async()=>{
+    const button=$('refresh');button.disabled=true;
+    try{
+        // Invalidate queued/in-flight photo results as well as cached successes.
+        authEpoch++;avatarObserver?.disconnect();avatarQueue.splice(0).forEach(job=>job.resolve(null));avatarCache.clear();avatarFailures.clear();
+        await save();if(!unlocked)return;
+        const changed=await catalog();if(!changed)return;
+        if(active)await openChat(active);else status('현재 실리 목록으로 새로고침했어요.');
+    }catch(e){status('새로고침 실패 · '+e.message);}finally{button.disabled=false;}
+};
 $('theme').onclick=()=>{const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;prefs.set('theme',value);BookshopRich.refresh(scroller);};
 $('latest').onclick=()=>page(Math.max(0,total-1));
 $('lock').onclick=async()=>{const saving=save();gate('책방을 잠그고 있어요.');try{await Promise.race([saving,new Promise(resolve=>setTimeout(resolve,1500))]);await api('/logout',{});$('gate-status').textContent='책방을 잠갔어요.';}catch(e){$('gate-status').textContent='화면은 가렸지만 서버 로그아웃을 확인하지 못했어요. 연결 후 다시 확인해 주세요.';}};
@@ -159,5 +215,5 @@ scroller.addEventListener('scroll',()=>{if(restoring||loading||!active)return;sc
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save(true);else if(unlocked){if(active&&!scrollDirty)openChat(active);else poll();}});
 window.addEventListener('pagehide',()=>save(true));
 setInterval(()=>{if(unlocked&&!document.hidden)catalog().catch(e=>status(e.message));},30000);
-(async()=>{try{const state=await api('/status');if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}})();
+(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.3.2';if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}})();
 })();

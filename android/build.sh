@@ -32,5 +32,5 @@ with zipfile.ZipFile('build/unsigned.apk','a',compression=zipfile.ZIP_DEFLATED) 
     z.write('build/dex/classes.dex','classes.dex')
 PY
 "$SILI_BUILD_TOOLS/zipalign" -f 4 build/unsigned.apk build/aligned.apk
-"$SILI_BUILD_TOOLS/apksigner" sign --ks "$SILI_KEYSTORE" --ks-key-alias "${SILI_KEY_ALIAS:-sili-library}" --ks-pass "file:$SILI_KEY_PASSWORD_FILE" --out ../dist/silly-bookshop-0.3.0-test.1.apk build/aligned.apk
-"$SILI_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-0.3.0-test.1.apk
+"$SILI_BUILD_TOOLS/apksigner" sign --ks "$SILI_KEYSTORE" --ks-key-alias "${SILI_KEY_ALIAS:-sili-library}" --ks-pass "file:$SILI_KEY_PASSWORD_FILE" --out ../dist/silly-bookshop-0.3.1-test.1.apk build/aligned.apk
+"$SILI_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-0.3.1-test.1.apk

@@ -95,42 +95,55 @@ async function entries(dir) {
     try { const list=await fs.readdir(dir, {withFileTypes:true});if(list.length>20000)throw fail(413,'한 폴더의 파일 수가 너무 많습니다.');return list; }
     catch(e) { if (e.code === 'ENOENT') return []; throw e; }
 }
-async function catalog(dirs) {
-    const result = [];
-    const avatars=new Map();
-    if(dirs.characters)for(const f of await entries(dirs.characters)){
-        if(f.isFile()&&/\.png$/i.test(f.name))avatars.set(f.name.slice(0,-4),f.name);
+async function catalog(dirs,{withCharacters=false}={}) {
+    const result=[],characters=[],avatars=new Map();
+    const cardRoot=dirs.characters||path.join(dirs.root,'characters');
+    for(const f of await entries(cardRoot)){
+        if(!f.isFile()||!/\.png$/i.test(f.name))continue;
+        try{await safeFile(cardRoot,[f.name]);}catch(e){if(e.code==='ENOENT'||e.status===403)continue;throw e;}
+        const person={key:'character:'+f.name,character:f.name.replace('.png',''),avatar:f.name};
+        characters.push(person);
+        avatars.set(person.character.normalize('NFC'),person);
+        avatars.set(f.name.slice(0,-4).normalize('NFC'),person);
     }
-    for (const folder of await entries(dirs.chats)) {
-        if (!folder.isDirectory()) continue;
-        for (const file of await entries(path.join(dirs.chats, folder.name))) {
-            if (!file.isFile() || !file.name.endsWith('.jsonl')) continue;
-            try {
-                const id = encode(['chat',folder.name,file.name]);
-                const stat = await fs.stat(await chatFile(dirs,id));
-                result.push({id,character:folder.name,avatar:avatars.get(folder.name)||null,title:file.name.slice(0,-6),modified:stat.mtimeMs});
+    for(const folder of await entries(dirs.chats)){
+        const person=avatars.get(folder.name.normalize('NFC'));
+        // Deleted cards can leave history folders. These are not current characters.
+        if(!folder.isDirectory()||!person)continue;
+        for(const file of await entries(path.join(dirs.chats,folder.name))){
+            if(!file.isFile()||!file.name.endsWith('.jsonl'))continue;
+            try{
+                const id=encode(['chat',folder.name,file.name]);
+                const stat=await fs.stat(await chatFile(dirs,id));
+                result.push({id,character:person.character,characterKey:person.key,avatar:person.avatar,title:file.name.slice(0,-6),modified:stat.mtimeMs});
                 if(result.length>20000)throw fail(413,'채팅 수가 현재 지원 범위를 넘습니다.');
-            } catch(e) { if (!['ENOENT'].includes(e.code) && e.status !== 403) throw e; }
+            }catch(e){if(e.code!=='ENOENT'&&e.status!==403)throw e;}
         }
     }
-    const groupNames = new Map();
-    if (dirs.groups) for (const f of await entries(dirs.groups)) {
-        if (!f.isFile() || !f.name.endsWith('.json')) continue;
-        try {
-            const g = await readJson(await safeFile(dirs.groups,[f.name]), {},256*1024);
-            for (const id of [g.chat_id, ...(Array.isArray(g.chats) ? g.chats : [])]) if (typeof id === 'string') groupNames.set(id, String(g.name || '그룹 대화'));
-        } catch { /* Invalid group metadata must not hide regular chats. */ }
+    const groups=new Map();
+    if(dirs.groups)for(const f of await entries(dirs.groups)){
+        if(!f.isFile()||!f.name.endsWith('.json'))continue;
+        try{
+            const g=await readJson(await safeFile(dirs.groups,[f.name]),{},256*1024);
+            const person={key:'group:'+f.name,character:'그룹 · '+String(g.name||'그룹 대화'),avatar:null};
+            characters.push(person);
+            for(const id of [g.chat_id,...(Array.isArray(g.chats)?g.chats:[])])if(typeof id==='string')groups.set(id,person);
+        }catch{/* Invalid group metadata must not hide regular characters. */}
     }
-    for (const f of await entries(dirs.groupChats)) {
-        if (!f.isFile() || !f.name.endsWith('.jsonl')) continue;
-        const id = encode(['group', f.name]);
-        try {
-            const stat = await fs.stat(await chatFile(dirs,id));
-            result.push({id,character:'그룹 · '+(groupNames.get(f.name.slice(0,-6)) || '그룹 대화'),title:f.name.slice(0,-6),modified:stat.mtimeMs});
+    for(const f of await entries(dirs.groupChats)){
+        const person=groups.get(f.name.slice(0,-6));
+        if(!f.isFile()||!f.name.endsWith('.jsonl')||!person)continue;
+        const id=encode(['group',f.name]);
+        try{
+            const stat=await fs.stat(await chatFile(dirs,id));
+            result.push({id,character:person.character,characterKey:person.key,avatar:null,title:f.name.slice(0,-6),modified:stat.mtimeMs});
             if(result.length>20000)throw fail(413,'채팅 수가 현재 지원 범위를 넘습니다.');
-        } catch(e) { if (e.code !== 'ENOENT' && e.status !== 403) throw e; }
+        }catch(e){if(e.code!=='ENOENT'&&e.status!==403)throw e;}
     }
-    return result.sort((a,b) => b.modified-a.modified);
+    result.sort((a,b)=>b.modified-a.modified);
+    const recent=new Map();for(const chat of result)if(!recent.has(chat.characterKey))recent.set(chat.characterKey,chat.modified);
+    characters.sort((a,b)=>(recent.get(b.key)||0)-(recent.get(a.key)||0)||a.character.localeCompare(b.character,'ko'));
+    return withCharacters?{characters,chats:result}:result;
 }
 function translations(m){
     const values=[],seen=new Set([m.mes]);
@@ -154,8 +167,8 @@ function translations(m){
 function messageHash(m){return crypto.createHash('sha256').update(JSON.stringify([m.name||'',!!m.is_user,!!m.is_system,m.mes,m.extra?.display_text??null,m.swipe_id??null,m.send_date??null,translations(m)])).digest('hex');}
 async function avatar(dirs,name){
     segment(name);
-    if(!/\.png$/i.test(name)||!dirs.characters)throw fail(404,'캐릭터 사진이 없습니다.');
-    const raw=await readText(await safeFile(dirs.characters,[name]),20*1024*1024,true);
+    if(!/\.png$/i.test(name))throw fail(404,'캐릭터 사진이 없습니다.');
+    const raw=await readText(await safeFile(dirs.characters||path.join(dirs.root,'characters'),[name]),20*1024*1024,true);
     if(!raw.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))throw fail(415,'PNG 캐릭터 사진만 지원합니다.');
     // Strip character-card text/private metadata, retain only PNG image chunks.
     const chunks=[raw.subarray(0,8)];let offset=8,ended=false;

@@ -1,7 +1,6 @@
 'use strict';
 // No remote assets and no code supplied by chat messages executes in this reader.
 window.BookshopRich=(()=>{
-    const converter=new showdown.Converter({tables:true,strikethrough:true,simpleLineBreaks:true,ghCodeBlocks:true,tasklists:true,openLinksInNewWindow:false});
     const forbidden=['script','iframe','frame','frameset','object','embed','base','meta','link','form','input','textarea','select','button','audio','video','source','track','animate','animatetransform','set','foreignobject'];
     const config={FORBID_TAGS:forbidden,FORBID_ATTR:['srcset','href','xlink:href','action','formaction','poster','background','ping','autofocus','tabindex','contenteditable','is'],ADD_TAGS:['style'],ADD_ATTR:['style','open'],FORCE_BODY:true};
     const networkValue=/url\s*\(|image-set\s*\(|https?:|\/\/|\\/i;
@@ -17,16 +16,8 @@ window.BookshopRich=(()=>{
         if(data.attrName==='src'&&!/^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(data.attrValue))data.keepAttr=false;
         if(data.attrName==='style'){const style=document.createElement('span').style;style.cssText=data.attrValue;data.attrValue=cleanDeclarations(style);}
     });
-    function html(text,rendered){
-        if(rendered)return text;
-        // Silly HTML cards are often wrapped in an html code fence.
-        return converter.makeHtml(text.replace(/(?:^|\n)[ \t]*```(?:html|htm)\s*\n([\s\S]*?)\n[ \t]*```/gi,(_,body)=>'\n'+body+'\n'));
-    }
-    function mount(host,text,{rendered=false,onResize=change=>change()}={}){
-        const rich=rendered||/<(?:[a-z][\w:-]*)(?:\s|>|\/)/i.test(text);
-        const markup=html(text,rendered);
-        if(!rich){host.innerHTML=DOMPurify.sanitize(markup,{...config,FORBID_TAGS:[...forbidden,'style'],FORBID_ATTR:[...config.FORBID_ATTR,'style']});return;}
-        const safe=DOMPurify.sanitize(markup,config);
+    function mount(host,text,{onResize=change=>change()}={}){
+        const safe=DOMPurify.sanitize(text,config);
         const frame=document.createElement('iframe');frame.className='rich-output';frame.title='메시지 HTML · 읽기 전용';
         // Same-origin lets only the parent measure height. No allow-scripts, navigation,
         // downloads, popups, forms, or external network access are granted.
