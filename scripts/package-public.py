@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Fail closed for secret-shaped files, then export only explicit public roots."""
 from pathlib import Path
-import hashlib,json,re,sys,zipfile
+import hashlib,json,re,sys,zipfile,subprocess
 root=Path(__file__).resolve().parents[1]
+subprocess.run(['node',str(root/'scripts/build-renderer.cjs'),'--check'],check=True)
 top={'.gitignore','.gitattributes','package.json','setup.cjs','README.md','SECURITY.md','TESTING.md','PUBLISHING.md','CHANGELOG.md'}
 trees={'server','scripts','client'}
 android_files={'android/AndroidManifest.xml','android/build.sh'}

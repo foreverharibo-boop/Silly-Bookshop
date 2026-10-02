@@ -7,12 +7,27 @@ let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-if(!window.BookshopRich){$('gate-status').textContent='화면 표시 파일을 불러오지 못했어요. 깃허브 파일 전체를 업데이트하고 새로고침해 주세요.';return;}
+const UI_VERSION='0.4.1-test.1';
+let rendererLoading=null;
+function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
+function ensureRenderer(){
+    if(rendererReady())return Promise.resolve();
+    if(rendererLoading)return rendererLoading;
+    rendererLoading=new Promise((resolve,reject)=>{
+        const script=document.createElement('script');let finished=false;
+        const finish=error=>{if(finished)return;finished=true;clearTimeout(timer);script.remove();error?reject(error):resolve();};
+        const problem=()=>new Error('본문 표시 파일을 받지 못했어요. 서버 업데이트·재시작을 확인한 뒤 아래 다시 불러오기를 눌러 주세요.');
+        const timer=setTimeout(()=>finish(problem()),12000);
+        script.src=base+'/rich.js?v='+UI_VERSION+'&retry='+Date.now();
+        script.onload=()=>finish(rendererReady()?null:problem());script.onerror=()=>finish(problem());document.head.append(script);
+    }).finally(()=>{rendererLoading=null;});
+    return rendererLoading;
+}
 if(![15,16,18,20].includes(font))font=16;
 document.documentElement.style.setProperty('--reading-size',font+'px');
 document.documentElement.dataset.theme=prefs.get('theme',matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
 function status(text){$('status').textContent=text;}
-function gate(message){unlocked=false;epoch++;catalogRequest++;authEpoch++;avatarObserver?.disconnect();avatarQueue.splice(0).forEach(job=>job.resolve(null));avatarFailures.clear();$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;BookshopRich.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';people=[];chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
+function gate(message){unlocked=false;epoch++;catalogRequest++;authEpoch++;avatarObserver?.disconnect();avatarQueue.splice(0).forEach(job=>job.resolve(null));avatarFailures.clear();$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;window.BookshopRich?.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';people=[];chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
 async function request(url,options={},timeout=20000){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
     try{const r=await fetch(url,{...options,signal:controller.signal});const bytes=await r.arrayBuffer();return {ok:r.ok,status:r.status,headers:r.headers,bytes};}
@@ -63,7 +78,7 @@ function avatar(name,file,className='avatar'){
     return box;
 }
 function layoutChange(change){const p=restoring?lastPosition:position();change();if(p)restore(p);}
-function output(host,text,rendered=false){BookshopRich.mount(host,text,{rendered,onResize:layoutChange});}
+function output(host,text,rendered=false){if(!rendererReady())throw new Error('본문 표시 파일을 다시 불러와 주세요.');window.BookshopRich.mount(host,text,{rendered,onResize:layoutChange});}
 function position(){
     const top=scroller.getBoundingClientRect().top;
     for(const el of scroller.querySelectorAll('.message')){
@@ -116,7 +131,7 @@ function renderLists(){
 function clearSelection(message){
     epoch++;loading=false;clearTimeout(saveTimer);scrollDirty=false;
     scroller.querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
-    BookshopRich.clear(scroller);scroller.replaceChildren(node('p','notice',message));
+    window.BookshopRich?.clear(scroller);scroller.replaceChildren(node('p','notice',message));
     active='';revision='';lastPosition=null;start=0;total=0;prefs.set('last','');
     $('title').textContent='대화를 골라 주세요';$('person').textContent='현재 실리의 책장';$('latest').hidden=true;
     status(message);if(matchMedia('(max-width:640px)').matches)fold(false);
@@ -133,7 +148,7 @@ async function catalog(){
 function renderChat(data,pos){
     if(data.displayPolicy!=='saved-display-v1')throw new Error('서버 플러그인과 화면 버전이 달라요. 서버를 업데이트한 뒤 재시작해 주세요.');
     scroller.querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
-    revision=data.revision;start=data.start;total=data.total;BookshopRich.clear(scroller);scroller.replaceChildren();
+    revision=data.revision;start=data.start;total=data.total;window.BookshopRich?.clear(scroller);scroller.replaceChildren();
     if(start>0){const b=node('button','page-button','이전 대화 읽기 ↑');b.onclick=()=>page(Math.max(0,start-30));scroller.append(b);}
     for(const m of data.messages){
         const item=node('article','message'+(m.user?' user':'')+(m.system?' system':''));item.dataset.index=String(m.index);
@@ -171,19 +186,21 @@ async function openChat(id,requestedStart){
     const meta=chats.find(c=>c.id===id);if(meta){character=meta.characterKey||meta.character;$('person').textContent=meta.character+'와 나눈 대화';$('title').textContent=meta.title;}
     prefs.set('last',id);renderLists();
     if(matchMedia('(max-width:640px)').matches)fold(true);
-    BookshopRich.clear(scroller);scroller.replaceChildren(node('p','notice','대화를 불러오고 있어요…'));status('대화 불러오는 중');
+    window.BookshopRich?.clear(scroller);scroller.replaceChildren(node('p','notice','대화를 불러오고 있어요…'));status('대화 불러오는 중');
     try{
         await Promise.race([saving,new Promise(resolve=>setTimeout(resolve,1000))]);
+        if(!unlocked||ticket!==epoch)return;
+        await ensureRenderer();
         if(!unlocked||ticket!==epoch)return;
         const data=await api('/chat?id='+encodeURIComponent(id)+(requestedStart===undefined?'':'&start='+requestedStart));
         if(!unlocked||ticket!==epoch)return;
         renderChat(data,requestedStart===undefined?data.saved:{index:requestedStart,fraction:0});
-    }catch(e){if(ticket===epoch){BookshopRich.clear(scroller);scroller.replaceChildren(node('p','notice',e.message));const retry=node('button','page-button','다시 불러오기');retry.onclick=()=>openChat(id,requestedStart);scroller.append(retry);status('불러오기 실패 · 다시 시도할 수 있어요.');}}
+    }catch(e){if(ticket===epoch){window.BookshopRich?.clear(scroller);scroller.replaceChildren(node('p','notice',e.message));const retry=node('button','page-button','다시 불러오기');retry.onclick=()=>openChat(id,requestedStart);scroller.append(retry);status('불러오기 실패 · 다시 시도할 수 있어요.');}}
     finally{if(ticket===epoch)loading=false;}
 }
 async function page(n){await openChat(active,n);scrollDirty=true;await save();}
 async function poll(){
-    if(!unlocked||!active||loading||document.hidden)return;
+    if(!unlocked||!active||loading||document.hidden||!rendererReady())return;
     const ticket=epoch,id=active;
     try{
         const data=await api('/chat?id='+encodeURIComponent(id)+'&start='+start+'&revision='+encodeURIComponent(revision));
@@ -200,7 +217,7 @@ async function enter(){
 }
 $('login-form').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/login',{password:$('password').value});await enter();}catch(err){$('gate-status').textContent=err.message;}finally{b.disabled=false;}};
 $('search').oninput=renderLists;
-$('font-size').onclick=()=>{const p=position();font=({15:16,16:18,18:20,20:15})[font];prefs.set('font',String(font));document.documentElement.style.setProperty('--reading-size',font+'px');$('font-size').textContent='가 '+font;BookshopRich.refresh(scroller);restore(p);};
+$('font-size').onclick=()=>{const p=position();font=({15:16,16:18,18:20,20:15})[font];prefs.set('font',String(font));document.documentElement.style.setProperty('--reading-size',font+'px');$('font-size').textContent='가 '+font;window.BookshopRich?.refresh(scroller);restore(p);};
 $('refresh').onclick=async()=>{
     const button=$('refresh');button.disabled=true;
     try{
@@ -211,12 +228,12 @@ $('refresh').onclick=async()=>{
         if(active)await openChat(active);else status('현재 실리 목록으로 새로고침했어요.');
     }catch(e){status('새로고침 실패 · '+e.message);}finally{button.disabled=false;}
 };
-$('theme').onclick=()=>{const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;prefs.set('theme',value);BookshopRich.refresh(scroller);};
+$('theme').onclick=()=>{const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;prefs.set('theme',value);window.BookshopRich?.refresh(scroller);};
 $('latest').onclick=()=>page(Math.max(0,total-1));
 $('lock').onclick=async()=>{const saving=save();gate('책방을 잠그고 있어요.');try{await Promise.race([saving,new Promise(resolve=>setTimeout(resolve,1500))]);await api('/logout',{});$('gate-status').textContent='책방을 잠갔어요.';}catch(e){$('gate-status').textContent='화면은 가렸지만 서버 로그아웃을 확인하지 못했어요. 연결 후 다시 확인해 주세요.';}};
 scroller.addEventListener('scroll',()=>{if(restoring||loading||!active)return;scrollDirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(()=>save(),650);},{passive:true});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save(true);else if(unlocked){if(active&&!scrollDirty)openChat(active);else poll();}});
 window.addEventListener('pagehide',()=>save(true));
 setInterval(()=>{if(unlocked&&!document.hidden)catalog().catch(e=>status(e.message));},30000);
-(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.4.0';if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}})();
+(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.4.1';if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}})();
 })();

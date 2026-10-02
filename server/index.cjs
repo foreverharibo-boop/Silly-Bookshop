@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs');
-const BASE='/api/plugins/sili-library',VERSION='0.4.0-test.1';
+const BASE='/api/plugins/sili-library',VERSION='0.4.1-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');

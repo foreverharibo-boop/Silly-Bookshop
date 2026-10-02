@@ -1,6 +1,6 @@
 # 검증 기록 / 공개 전 남은 실기 테스트
 
-버전: **서버·웹·안내 확장 0.4.0-test.1 / APK 0.3.1-test.1**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
+버전: **서버·웹 0.4.1-test.1 / 안내 확장 0.4.0-test.1 / APK 0.3.1-test.1**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
 
 ## 자동 검사
 
@@ -54,6 +54,13 @@
 - HTTP 인증·계정/Origin 격리·페이지 제한·로그아웃 검사 및 현재 캐릭터 목록/채팅 삭제·추가/프사 픽셀 교체 검사 통과.
 - APK는 기존 0.3.1을 사용하며 다시 빌드하지 않았습니다. 실제 사용자 폰·터먹스에서 이 버전은 아직 검증하지 않았습니다.
 
+## 0.4.1 변경 검증
+
+- Chromium에서 rich.js를 404로 고의 차단해도 틀린 비밀번호 안내, 올바른 비밀번호 로그인, 캐릭터/대화 목록이 동작하는 것 확인.
+- 본문 표시 실패 후 명시 오류/다시 불러오기, 서버 파일 복구 후 APK 재설치나 비밀번호 재설정 없이 본문 복원 확인.
+- 모든 개별 vendor 경로를 404로 차단해도 새 단일 묶음으로 Markdown·HTML 색상 표시 및 생각 태그 제외 확인. vendor 네트워크 요청 0개.
+- 잠금·새 페이지 재접속 확인. 실제 사용자 폰에서 어떤 파일이 로드되지 않았는지는 스크린샷만으로 특정하지 않았습니다.
+
 ## 다시 실행하기
 
 기본 단위 테스트에는 외부 패키지가 필요 없습니다:
@@ -68,6 +75,7 @@ npm test
 NODE_PATH=/테스트전용/node_modules node server/tests/http-security.cjs
 NODE_PATH=/테스트전용/node_modules node server/tests/integration.cjs
 NODE_PATH=/테스트전용/node_modules node server/tests/catalog-refresh.cjs
+NODE_PATH=/테스트전용/node_modules node server/tests/renderer-recovery.cjs
 ```
 
 웹 테스트의 스크린샷 저장 위치는 `SILI_SCREENSHOT_DIR`로 정합니다. 테스트를 실행한 곳의 출력은 개인 파일이 섞이지 않았는지 확인한 뒤 공유하세요.

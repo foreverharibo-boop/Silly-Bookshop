@@ -7,3 +7,5 @@ Sources: https://github.com/cure53/DOMPurify and https://github.com/showdownjs/s
 Downloaded from the npm registry, bundled locally; no runtime CDN requests.
 Full upstream licenses are included alongside the JavaScript files.
 0.4.0 uses Showdown for Markdown and DOMPurify for the resulting HTML. Both are bundled locally. Untrusted HTML stays in a script-disabled iframe.
+
+0.4.1 bundles both dependencies into `../rich.js` together with `../../renderer-source.js`. The reader no longer requests individual vendor scripts. Generate/check using `node scripts/build-renderer.cjs [--check]` from the repository root.
