@@ -43,12 +43,13 @@ public final class MainActivity extends Activity {
         setContentView(root);
         LinearLayout toolbar=new LinearLayout(this);toolbar.setPadding(dp(8),0,dp(8),0);toolbar.setBackgroundColor(Color.rgb(247,248,250));
         Button home=new Button(this);home.setText("책방");home.setTextSize(12);home.setOnClickListener(v->openLibrary());
+        Button tools=new Button(this);tools.setText("도구");tools.setTextSize(12);tools.setOnClickListener(v->openTools());
         Button address=new Button(this);address.setText("서버 주소");address.setTextSize(12);address.setOnClickListener(v->configure());
-        Button reload=new Button(this);reload.setText("새로고침");reload.setTextSize(12);reload.setOnClickListener(v->web.reload());
-        toolbar.addView(home,new LinearLayout.LayoutParams(0,dp(44),1));toolbar.addView(address,new LinearLayout.LayoutParams(0,dp(44),1));toolbar.addView(reload,new LinearLayout.LayoutParams(0,dp(44),1));root.addView(toolbar);
+        Button reload=new Button(this);reload.setText("화면\n새로고침");reload.setTextSize(11);reload.setOnClickListener(v->web.reload());
+        toolbar.addView(home,new LinearLayout.LayoutParams(0,dp(44),1));toolbar.addView(tools,new LinearLayout.LayoutParams(0,dp(44),1));toolbar.addView(address,new LinearLayout.LayoutParams(0,dp(44),1));toolbar.addView(reload,new LinearLayout.LayoutParams(0,dp(44),1));root.addView(toolbar);
         WebView.setWebContentsDebuggingEnabled(false);
         web=new WebView(this);root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
-        WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
         if(Build.VERSION.SDK_INT>=26)s.setSafeBrowsingEnabled(true);
         s.setSavePassword(false);
         CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
@@ -84,6 +85,16 @@ public final class MainActivity extends Activity {
         return UrlPolicy.allowed(server,url);
     }
     private void openLibrary(){if(server.isEmpty()){configure();return;}loginRedirect=false;web.loadUrl(server+LIBRARY);}
+    private void openTools(){
+        if(server.isEmpty()){configure();return;}
+        try{
+            URI current=new URI(web.getUrl()==null?"":web.getUrl());
+            if(allowed(current.toString())&&LIBRARY.equals(current.getPath())){
+                web.evaluateJavascript("window.dispatchEvent(new Event('bookshop-open-tools'));",null);return;
+            }
+        }catch(Exception ignored){}
+        loginRedirect=false;web.loadUrl(server+LIBRARY+"#tools");
+    }
     private void configure(){
         LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(24),dp(12),dp(24),0);
         TextView help=new TextView(this);help.setText("실리를 여는 주소를 입력해 주세요.\n이 폰의 터먹스: http://127.0.0.1:8000\n다른 기기: 테일스케일 주소와 포트\n\n실리 서버와 책방 플러그인이 켜져 있어야 해요.");help.setTextSize(13);form.addView(help);

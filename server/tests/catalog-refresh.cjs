@@ -22,7 +22,7 @@ function png(red=40){
  const app=express();app.use(express.json());app.use((req,res,next)=>{req.user={directories:dirs};next();});app.get('/csrf-token',(req,res)=>res.json({token:'fixture'}));
  const router=express.Router();await plugin.init(router);app.use('/api/plugins/silly-bookshop',router);server=await new Promise(r=>{const s=app.listen(0,'127.0.0.1',()=>r(s));});
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('http://127.0.0.1:'+server.address().port+'/api/plugins/silly-bookshop/');await page.locator('#password').fill('test-password');await page.locator('.primary').click();
+ await page.goto('http://127.0.0.1:'+server.address().port+'/api/plugins/silly-bookshop/');await page.locator('#password').fill('test-password');await page.locator('#login-form .primary').click();
  const row=name=>page.locator('.character').filter({has:page.locator('.character-name',{hasText:name})});
  await row('현재').waitFor();assert.equal(await page.locator('.character').count(),2);assert.equal(await row('삭제된 캐릭터').count(),0);
  await row('빈 캐릭터').click();await page.getByText('아직 저장된 대화가 없어요.',{exact:true}).waitFor();

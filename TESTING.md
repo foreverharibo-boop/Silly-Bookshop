@@ -1,6 +1,6 @@
 # 검증 기록 / 공개 전 남은 실기 테스트
 
-버전: **서버·웹·APK 0.5.0-test.1 / 브라우저 확장 없음**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
+버전: **서버·웹·APK 0.6.0-test.1 / 브라우저 확장 없음**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
 
 ## 자동 검사
 
@@ -68,6 +68,15 @@
 - Chromium에서 두 채팅을 번갈아 열어 첫 열기 0번/스크롤 위치 8번/기존 대화 35번 복원, 처음으로 버튼 0번 저장, 6개 테마의 본문 색상과 재접속 후 선택 유지 확인. 크림·로즈·밤서재 화면을 시각 확인했습니다.
 - Android URL 정책 검사, 새 package app.silly.bookshop/versionCode 6/APK 서명 확인. 실제 폰 설치는 아직 미검증.
 
+## 0.6.0 변경 검증
+
+- 기존 Node 단위 테스트 5개 파일 통과. 별도 account-http.cjs에서 현재 비밀번호 확인, 기존 auth.json 호환, 복구 해시 저장, 이전 비밀번호와 모든 기존 세션 무효화, 계정 격리, 동시 복구 요청 1회만 성공, 읽던 위치 보존, Origin/전용 헤더/입력 크기/요청 제한 검사 통과.
+- 기존 HTTP 보안 통합 테스트 통과. 로그인·본문·위치·계정/Host 격리 기능 유지.
+- 실제 Chromium에서 390px 도구 창 너비 확인, Android 버튼과 같은 고정 이벤트로 도구 열기, 3종 로컬 글꼴과 굵은 글꼴 실제 로드, iframe 안의 글꼴·굵기·크기 적용, 새로고침 후 설정 유지 확인.
+- 잘못된 현재 비밀번호 안내, 코드 발급·창 닫힘 후 지우기, 비밀번호 변경 후 새 비밀번호 로그인, 로그아웃 후 코드 재설정과 새 로그인까지 확인. 복구 코드는 localStorage에 없으며 외부 네트워크 요청 없음.
+- 기존 전체 채팅/HTML/번역/숨김 규칙/읽던 위치/6개 테마/원본 불변 브라우저 검사 통과.
+- versionCode 7, app.silly.bookshop, INTERNET 단일 권한, v2/v3 서명 및 기존 0.5.0과 동일 인증서 확인. 실제 Android 폰의 새 상단 버튼·설치·복사 동작은 사용자 확인이 필요합니다.
+
 ## 다시 실행하기
 
 기본 단위 테스트에는 외부 패키지가 필요 없습니다:
@@ -79,6 +88,7 @@ npm test
 통합 테스트는 개발용 임시 폴더에 express 4.21.2, playwright 1.51.1과 Chromium을 설치해서 실행했습니다. 이는 테스트 의존성이며 플러그인의 실행 의존성이 아닙니다. 이후 버전을 바꾸면 새 결과를 기록하세요.
 
 ```sh
+NODE_PATH=/테스트전용/node_modules node server/tests/account-http.cjs
 NODE_PATH=/테스트전용/node_modules node server/tests/http-security.cjs
 NODE_PATH=/테스트전용/node_modules node server/tests/integration.cjs
 NODE_PATH=/테스트전용/node_modules node server/tests/catalog-refresh.cjs
@@ -118,7 +128,7 @@ java -cp /tmp/silly-url-test UrlPolicyTest
 
 - 패키지: `app.silly.bookshop`
 - 표시 이름: 실리 책방
-- versionCode: 6 / versionName: 0.5.0-test.1
+- versionCode: 6 / versionName: 0.6.0-test.1
 - Android API 26 이상 / target API 35
 - 앱이 요청하는 권한: INTERNET
 - 서명 인증서 SHA-256: `d7ca695de38f3708bee090e88d8a4306bb05f332575b49cbbe1ea0db395ddfae`

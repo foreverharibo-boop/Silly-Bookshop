@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
-const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs');
-const BASE='/api/plugins/silly-bookshop',VERSION='0.5.0-test.1';
+const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs');
+const BASE='/api/plugins/silly-bookshop',VERSION='0.6.0-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -16,6 +16,7 @@ function setCookie(req,res,token,maxAge){res.cookie('silly_bookshop',token,{http
 async function init(router){
     const sessions=new Map();
     const loginIp=security.bucket(10,15*60000),loginUser=security.bucket(30,15*60000);
+    const accountIp=security.bucket(10,15*60000),accountUser=security.bucket(30,15*60000);
     const statusRate=security.bucket(120,60000),apiRate=security.bucket(240,60000),captureRate=security.bucket(30,60000);
     const hashes=security.concurrency(2),heavyRead=security.concurrency(2),avatarRead=security.concurrency(2);
     function authenticated(req,conf){
@@ -41,6 +42,10 @@ async function init(router){
     }));
     router.get('/',(req,res)=>req.originalUrl.split('?')[0].endsWith('/')?res.sendFile(path.join(__dirname,'public/index.html')):res.redirect(BASE+'/'));
     for(const name of ['app.js','rich.js','style.css','icon.svg','vendor/purify.min.js','vendor/showdown.min.js'])router.get('/'+name,(req,res)=>res.sendFile(path.join(__dirname,'public',name)));
+    for(const family of ['NanumGothic','NanumMyeongjo','GowunBatang'])for(const weight of ['Regular','Bold']){
+        const name=family+'-'+weight+'.woff2';
+        router.get('/fonts/'+name,(req,res)=>{res.set('Cache-Control','private, max-age=86400');res.sendFile(path.join(__dirname,'public/fonts',name));});
+    }
     router.get('/status',wrap(async(req,res)=>{
         statusRate(req.socket.remoteAddress);
         const conf=await c.authConfig(req.user.directories.root);
@@ -62,6 +67,14 @@ async function init(router){
         sessions.set(key,{root,hash:conf.hash,origin:security.origin(req),expires:now+30*60000,absolute:now+age});
         setCookie(req,res,token,age);res.json({ok:true});
     }));
+    function accountLimit(req){const root=req.user.directories.root;accountIp(root+'|'+req.socket.remoteAddress);accountUser(root);}
+    function revoke(root){for(const [key,s] of sessions)if(s.root===root)sessions.delete(key);}
+    router.post('/account/reset',wrap(async(req,res)=>{
+        accountLimit(req);
+        const root=req.user.directories.root;
+        const result=await hashes(()=>account.update(root,{mode:'reset',code:req.body.code,newPassword:req.body.newPassword}));
+        revoke(root);setCookie(req,res,'',0);res.json({ok:true,...result});
+    }));
     // Write-only bridge. Requires the existing Silly login, strict Origin and CSRF
     // middleware above; it never grants access to the locked bookshop or its data.
     router.post('/capture',wrap(async(req,res)=>{
@@ -75,6 +88,14 @@ async function init(router){
         apiRate(cookieKey(req));session.expires=Math.min(Date.now()+30*60000,session.absolute);next();
     }));
     router.post('/logout',(req,res)=>{sessions.delete(cookieKey(req));setCookie(req,res,'',0);res.json({ok:true});});
+    router.get('/account',wrap(async(req,res)=>res.json({recoveryConfigured:!!(await c.authConfig(req.user.directories.root))?.recoveryHash})));
+    for(const mode of ['password','recovery-code'])router.post('/account/'+mode,wrap(async(req,res)=>{
+        accountLimit(req);
+        const root=req.user.directories.root,session=sessions.get(cookieKey(req));
+        const result=await hashes(()=>account.update(root,{mode,password:req.body.password,newPassword:req.body.newPassword,sessionHash:session?.hash}));
+        if(mode==='password'){revoke(root);setCookie(req,res,'',0);}
+        res.json({ok:true,...result});
+    }));
     router.get('/catalog',wrap(async(req,res)=>res.json(await heavyRead(()=>c.catalog(req.user.directories,{withCharacters:true})))));
     router.get('/avatar',wrap(async(req,res)=>res.type('png').send(await avatarRead(()=>c.avatar(req.user.directories,req.query.name)))));
     router.get('/chat',wrap(async(req,res)=>{

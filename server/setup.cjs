@@ -1,7 +1,7 @@
 'use strict';
 const path=require('node:path');
 const fs=require('node:fs/promises');
-const crypto=require('node:crypto');
+const account=require('./account.cjs');
 const readline=require('node:readline');
 const c=require('./core.cjs');
 async function hidden(prompt) {
@@ -28,7 +28,9 @@ async function hidden(prompt) {
     const password=await hidden('새 비밀번호 (12자 이상): ');
     if(password.length<12||password.length>256)throw new Error('12~256자로 설정해 주세요.');
     if(password!==await hidden('한 번 더 입력: '))throw new Error('두 비밀번호가 다릅니다.');
-    const salt=crypto.randomBytes(32).toString('hex');
-    await c.atomicJson(path.join(await c.stateDir(root),'auth.json'),{salt,hash:await c.passwordHash(password,salt)});
+    const next=await account.credentials(password);
+    const file=path.join(await c.stateDir(root),'auth.json');
+    await c.serialized(file,()=>c.atomicJson(file,next.conf));
+    console.log('\n복구 코드 (안전한 곳에 따로 보관해 주세요):\n'+next.recoveryCode+'\n기존 복구 코드는 폐기됩니다. 이 코드를 다른 사람에게 보내지 마세요.\n');
     console.log('설정 완료! 책방 주소: /api/plugins/silly-bookshop/');
 })().catch(e=>{console.error(e.message);process.exitCode=1;});

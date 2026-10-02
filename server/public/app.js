@@ -8,7 +8,7 @@ let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='0.5.0-test.1';
+const UI_VERSION='0.6.0-test.1';
 let rendererLoading=null;
 function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
 function ensureRenderer(){
@@ -30,8 +30,60 @@ const themeNames={light:'화이트',cream:'크림',rose:'로즈',sage:'세이지
 const selectedTheme=prefs.get('theme',matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
 document.documentElement.dataset.theme=Object.hasOwn(themeNames,selectedTheme)?selectedTheme:'light';
 $('theme').value=document.documentElement.dataset.theme;
+const fontFamilies={system:'system-ui,sans-serif',gothic:'"Bookshop Gothic",sans-serif',myeongjo:'"Bookshop Myeongjo",serif',batang:'"Bookshop Batang",serif'};
+let fontFamily=prefs.get('font-family','system');if(!Object.hasOwn(fontFamilies,fontFamily))fontFamily='system';
+$('font-family').value=fontFamily;$('reading-bold').checked=prefs.get('bold','false')==='true';$('reading-size').value=String(font);
+function applyReading(){
+    document.documentElement.style.setProperty('--reading-family',fontFamilies[fontFamily]);
+    document.documentElement.style.setProperty('--reading-weight',$('reading-bold').checked?'700':'400');
+    document.documentElement.dataset.readingFont=fontFamily;document.documentElement.dataset.readingBold=String($('reading-bold').checked);
+    document.documentElement.style.setProperty('--reading-size',font+'px');$('reading-size').value=String(font);$('font-size').textContent='가 '+font;
+    window.BookshopRich?.refresh(scroller);
+}
+applyReading();
+function closeDialogs(){document.querySelectorAll('dialog[open]').forEach(d=>d.close());}
+function showRecovery(code){$('issued-code').value=code;$('copy-status').textContent='';$('recovery-result').showModal();}
+async function openTools(){
+    if(document.querySelector('dialog[open]'))return;
+    $('account-settings').hidden=!unlocked;$('account-locked').hidden=unlocked;
+    $('account-message').textContent='';$('tools-dialog').showModal();
+    if(unlocked)try{const info=await api('/account');$('account-status').textContent=info.recoveryConfigured?'복구 코드가 설정되어 있어요. 잃어버렸다면 재발급해 주세요.':'아직 복구 코드가 없어요. 현재 비밀번호로 미리 발급해 두세요.';}catch(e){$('account-message').textContent=e.message;}
+}
+$('tools').onclick=openTools;
+window.addEventListener('bookshop-open-tools',openTools);
+window.addEventListener('hashchange',()=>{if(location.hash==='#tools')openTools();});
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).close());
+$('tools-dialog').addEventListener('close',()=>{$('account-form').reset();$('account-message').textContent='';});
+$('reset-dialog').addEventListener('close',()=>{$('reset-form').reset();$('reset-message').textContent='';});
+$('recovery-result').addEventListener('close',()=>{$('issued-code').value='';});
+$('forgot-password').onclick=()=>{$('reset-dialog').showModal();};
+$('copy-code').onclick=async()=>{
+    try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText($('issued-code').value);else{$('issued-code').focus();$('issued-code').select();if(!document.execCommand('copy'))throw new Error();}$('copy-status').textContent='복사했어요. 안전한 곳에 붙여넣어 보관해 주세요.';}
+    catch{$('issued-code').focus();$('issued-code').select();$('copy-status').textContent='코드를 길게 눌러 복사해 주세요.';}
+};
+async function accountAction(mode){
+    const form=$('account-form');if(form.dataset.busy)return;
+    if(!$('current-password').reportValidity())return;
+    if(mode==='password'&&($('new-password').value.length<12||$('new-password').value!==$('confirm-password').value)){$('account-message').textContent='새 비밀번호를 12자 이상으로, 두 칸에 같게 입력해 주세요.';return;}
+    form.dataset.busy='true';form.querySelectorAll('button').forEach(b=>b.disabled=true);$('account-message').textContent='변경 중이에요…';
+    try{
+        if(mode==='password')await save();
+        const result=await api('/account/'+mode,{password:$('current-password').value,newPassword:$('new-password').value});
+        closeDialogs();if(mode==='password')gate('비밀번호를 변경했어요. 새 비밀번호로 다시 로그인해 주세요.');showRecovery(result.recoveryCode);
+    }catch(e){$('account-message').textContent=e.message;}
+    finally{delete form.dataset.busy;form.querySelectorAll('button').forEach(b=>b.disabled=false);}
+}
+$('account-form').onsubmit=e=>{e.preventDefault();accountAction('password');};
+$('make-recovery').onclick=()=>accountAction('recovery-code');
+$('reset-form').onsubmit=async e=>{
+    e.preventDefault();const b=e.submitter;if(b.disabled)return;
+    if($('reset-password').value!==$('reset-confirm').value){$('reset-message').textContent='두 비밀번호가 달라요.';return;}
+    b.disabled=true;$('reset-message').textContent='재설정 중이에요…';
+    try{const result=await api('/account/reset',{code:$('recovery-code').value,newPassword:$('reset-password').value});closeDialogs();gate('새 비밀번호를 설정했어요. 다시 로그인해 주세요.');showRecovery(result.recoveryCode);}
+    catch(err){$('reset-message').textContent=err.message;}finally{b.disabled=false;}
+};
 function status(text){$('status').textContent=text;}
-function gate(message){pendingPositions.clear();unlocked=false;epoch++;catalogRequest++;authEpoch++;avatarObserver?.disconnect();avatarQueue.splice(0).forEach(job=>job.resolve(null));avatarFailures.clear();$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;window.BookshopRich?.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';people=[];chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
+function gate(message){closeDialogs();pendingPositions.clear();unlocked=false;epoch++;catalogRequest++;authEpoch++;avatarObserver?.disconnect();avatarQueue.splice(0).forEach(job=>job.resolve(null));avatarFailures.clear();$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;window.BookshopRich?.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';people=[];chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
 async function request(url,options={},timeout=20000){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
     try{const r=await fetch(url,{...options,signal:controller.signal});const bytes=await r.arrayBuffer();return {ok:r.ok,status:r.status,headers:r.headers,bytes};}
@@ -39,6 +91,7 @@ async function request(url,options={},timeout=20000){
     finally{clearTimeout(timer);}
 }
 async function api(route,body,keepalive=false){
+    const requestAuthEpoch=authEpoch;
     const options={credentials:'same-origin',cache:'no-store',redirect:'error'};
     if(body!==undefined){
         if(!csrf){const response=await request('/csrf-token',{credentials:'same-origin',cache:'no-store'});try{csrf=JSON.parse(new TextDecoder().decode(response.bytes)).token;}catch{throw new Error('실리 로그인이 필요해요. 실리 로그인 화면을 먼저 열어 주세요.');}}
@@ -46,7 +99,7 @@ async function api(route,body,keepalive=false){
     }
     const response=await request(base+route,options);
     let data;try{data=JSON.parse(new TextDecoder().decode(response.bytes));}catch{throw new Error('실리 로그인 화면으로 이동했거나 서버가 잘못된 응답을 보냈어요.');}
-    if(!response.ok){if(response.status===401&&route!=='/login')gate('다시 책방 잠금을 풀어 주세요.');if(response.status===403)csrf='';throw new Error(data.error||'요청에 실패했습니다.');}
+    if(!response.ok){if(response.status===401&&route!=='/login'&&requestAuthEpoch===authEpoch)gate('다시 책방 잠금을 풀어 주세요.');if(response.status===403)csrf='';throw new Error(data.error||'요청에 실패했습니다.');}
     return data;
 }
 function node(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
@@ -224,7 +277,11 @@ async function enter(){
 }
 $('login-form').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/login',{password:$('password').value});await enter();}catch(err){$('gate-status').textContent=err.message;}finally{b.disabled=false;}};
 $('search').oninput=renderLists;
-$('font-size').onclick=()=>{const p=position();font=({15:16,16:18,18:20,20:15})[font];prefs.set('font',String(font));document.documentElement.style.setProperty('--reading-size',font+'px');$('font-size').textContent='가 '+font;window.BookshopRich?.refresh(scroller);restore(p);};
+function readingChange(change){const p=position();change();applyReading();if(p)restore(p);}
+$('font-size').onclick=()=>readingChange(()=>{font=({15:16,16:18,18:20,20:15})[font];prefs.set('font',String(font));});
+$('reading-size').onchange=()=>readingChange(()=>{font=Number($('reading-size').value);prefs.set('font',String(font));});
+$('font-family').onchange=()=>readingChange(()=>{fontFamily=$('font-family').value;prefs.set('font-family',fontFamily);});
+$('reading-bold').onchange=()=>readingChange(()=>prefs.set('bold',String($('reading-bold').checked)));
 $('refresh').onclick=async()=>{
     const button=$('refresh');button.disabled=true;
     try{
@@ -243,5 +300,5 @@ scroller.addEventListener('scroll',()=>{if(restoring||loading||!active)return;sc
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save(true);else if(unlocked){if(active&&!scrollDirty)openChat(active);else poll();}});
 window.addEventListener('pagehide',()=>save(true));
 setInterval(()=>{if(unlocked&&!document.hidden)catalog().catch(e=>status(e.message));},30000);
-(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.5.0';if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}})();
+(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.6.0';if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}if(location.hash==='#tools')openTools();})();
 })();
