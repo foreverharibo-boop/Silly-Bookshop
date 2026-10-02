@@ -1,0 +1,14 @@
+{
+  "name": "sili-bookshop",
+  "version": "0.2.0-test.1",
+  "description": "실리 책방 — private read-only SillyTavern chat reader",
+  "private": true,
+  "license": "UNLICENSED",
+  "main": "server/index.cjs",
+  "engines": {"node": ">=18"},
+  "scripts": {
+    "setup": "node setup.cjs",
+    "test": "node --test server/tests/*.test.cjs",
+    "check-public": "python3 scripts/package-public.py --check"
+  }
+}

@@ -1,0 +1,100 @@
+'use strict';
+const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
+const c=require('./core.cjs'),security=require('./security.cjs');
+const BASE='/api/plugins/sili-library',VERSION='0.2.0-test.1';
+const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
+    if(res.headersSent)return next(e);
+    if(e.status===429)res.set('Retry-After','60');
+    res.status(e.status||(e.code==='ENOENT'?404:500)).json({error:e.status?e.message:e.code==='ENOENT'?'파일을 찾을 수 없습니다.':'읽기에 실패했습니다. 실리 서버 로그를 확인해 주세요.'});
+    if(!e.status&&e.code!=='ENOENT')console.error('[sili-bookshop]',e.code||'internal-error');
+});
+function cookieKey(req){
+    const match=String(req.headers.cookie||'').match(/(?:^|;\s*)sili_library=([a-f0-9]{64})(?:;|$)/);
+    return match?crypto.createHash('sha256').update(match[1]).digest('hex'):'';
+}
+function setCookie(req,res,token,maxAge){res.cookie('sili_library',token,{httpOnly:true,sameSite:'strict',secure:req.secure,path:BASE,maxAge});}
+async function init(router){
+    const sessions=new Map();
+    const loginIp=security.bucket(10,15*60000),loginUser=security.bucket(30,15*60000);
+    const statusRate=security.bucket(120,60000),apiRate=security.bucket(180,60000);
+    const hashes=security.concurrency(2),heavyRead=security.concurrency(2);
+    function authenticated(req,conf){
+        const key=cookieKey(req),s=sessions.get(key),now=Date.now();
+        if(!s)return null;
+        if(s.expires<=now||s.absolute<=now||s.hash!==conf?.hash){sessions.delete(key);return null;}
+        if(s.root!==req.user.directories.root||s.origin!==security.origin(req))return null;
+        return s;
+    }
+    router.use(wrap(async(req,res,next)=>{
+        res.set({'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"});
+        for(const h of ['Access-Control-Allow-Origin','Access-Control-Allow-Credentials','Access-Control-Allow-Headers','Access-Control-Allow-Methods'])res.removeHeader(h);
+        if(!req.user?.directories?.root||!req.user.directories.chats||!req.user.directories.groupChats)throw c.fail(403,'먼저 실리에 로그인해 주세요.');
+        if(!security.transportAllowed(req))throw c.fail(403,'책방은 같은 폰의 localhost, 테일스케일 또는 HTTPS 연결에서 열어 주세요.');
+        if(!['GET','HEAD','POST'].includes(req.method))throw c.fail(405,'지원하지 않는 요청입니다.');
+        if(req.headers.origin&&!security.sameOrigin(req))throw c.fail(403,'같은 실리 주소에서 접속해 주세요.');
+        if(req.method==='POST'){
+            if(!security.sameOrigin(req)||req.get('x-sili-request')!=='1'||!req.is('application/json'))throw c.fail(403,'책방 화면에서 다시 시도해 주세요.');
+            if(!req.body||Array.isArray(req.body)||typeof req.body!=='object')throw c.fail(400,'잘못된 요청입니다.');
+            if(JSON.stringify(req.body).length>8192)throw c.fail(413,'요청이 너무 큽니다.');
+        }
+        next();
+    }));
+    router.get('/',(req,res)=>req.originalUrl.split('?')[0].endsWith('/')?res.sendFile(path.join(__dirname,'public/index.html')):res.redirect(BASE+'/'));
+    for(const name of ['app.js','style.css','icon.svg'])router.get('/'+name,(req,res)=>res.sendFile(path.join(__dirname,'public',name)));
+    router.get('/status',wrap(async(req,res)=>{
+        statusRate(req.socket.remoteAddress);
+        const conf=await c.authConfig(req.user.directories.root);
+        res.json({configured:!!conf,authenticated:!!authenticated(req,conf),version:VERSION});
+    }));
+    router.post('/login',wrap(async(req,res)=>{
+        const root=req.user.directories.root,now=Date.now();
+        loginIp(root+'|'+req.socket.remoteAddress);loginUser(root);
+        if(typeof req.body.password!=='string'||req.body.password.length>256)throw c.fail(400,'비밀번호를 확인해 주세요.');
+        const conf=await c.authConfig(root);
+        if(!conf)throw c.fail(409,'터먹스에서 책방 비밀번호를 먼저 설정해 주세요.');
+        if(!await hashes(()=>c.verifyPassword(req.body.password,conf)))throw c.fail(401,'비밀번호가 맞지 않습니다.');
+        for(const [key,s]of sessions)if(s.expires<=now||s.absolute<=now)sessions.delete(key);
+        const prior=sessions.get(cookieKey(req));if(prior?.root===root)sessions.delete(cookieKey(req));
+        const own=[...sessions.entries()].filter(([,s])=>s.root===root);
+        if(own.length>=16)sessions.delete(own[0][0]);
+        if(sessions.size>=256)throw c.fail(429,'로그인 연결이 많습니다. 잠시 후 다시 시도해 주세요.');
+        const token=crypto.randomBytes(32).toString('hex'),key=crypto.createHash('sha256').update(token).digest('hex'),age=86400000;
+        sessions.set(key,{root,hash:conf.hash,origin:security.origin(req),expires:now+30*60000,absolute:now+age});
+        setCookie(req,res,token,age);res.json({ok:true});
+    }));
+    router.use(wrap(async(req,res,next)=>{
+        const session=authenticated(req,await c.authConfig(req.user.directories.root));
+        if(!session)throw c.fail(401,'책방 잠금을 풀어 주세요.');
+        apiRate(cookieKey(req));session.expires=Math.min(Date.now()+30*60000,session.absolute);next();
+    }));
+    router.post('/logout',(req,res)=>{sessions.delete(cookieKey(req));setCookie(req,res,'',0);res.json({ok:true});});
+    router.get('/catalog',wrap(async(req,res)=>res.json({chats:await heavyRead(()=>c.catalog(req.user.directories))})));
+    router.get('/chat',wrap(async(req,res)=>{
+        const result=await heavyRead(async()=>{
+            const file=await c.chatFile(req.user.directories,req.query.id),stat=await fs.stat(file);
+            if(stat.size>32*1024*1024)throw c.fail(413,'32MB를 넘는 대화는 현재 버전에서 열 수 없습니다.');
+            const revision=[stat.ino,stat.mtimeMs,stat.ctimeMs,stat.size].join(':');
+            if(req.query.revision===revision)return {unchanged:true,revision};
+            const parsed=c.parseChat(await c.readText(file,32*1024*1024));
+            const saved=await c.position(req.user.directories.root,req.query.id);
+            const requested=req.query.start===undefined?(saved?.index||0):Number(req.query.start);
+            if(!Number.isSafeInteger(requested)||requested<0)throw c.fail(400,'잘못된 페이지입니다.');
+            const start=Math.min(requested,Math.max(0,parsed.messages.length-1));
+            const messages=[];let size=0;
+            for(const m of parsed.messages.slice(start,start+150)){
+                const bytes=Buffer.byteLength(JSON.stringify(m));
+                if(messages.length&&size+bytes>2*1024*1024)break;
+                messages.push(m);size+=bytes;
+            }
+            return {revision,start,total:parsed.messages.length,messages,nextStart:start+messages.length,skipped:parsed.skipped,saved};
+        });
+        res.json(result);
+    }));
+    router.post('/position',wrap(async(req,res)=>{
+        if(!req.body.position||typeof req.body.position!=='object'||Array.isArray(req.body.position))throw c.fail(400,'읽던 위치가 올바르지 않습니다.');
+        await c.chatFile(req.user.directories,req.body.id);
+        res.json(await c.position(req.user.directories.root,req.body.id,req.body.position));
+    }));
+    console.log('[실리 책방 '+VERSION+'] '+BASE+'/');
+}
+module.exports={init,info:{id:'sili-library',name:'실리 책방',description:'나만의 읽기 전용 채팅 책방'}};
