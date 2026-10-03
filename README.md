@@ -1,6 +1,6 @@
 # 실리 책방 · Silly Bookshop
 
-**서버·웹·Android APK 0.9.4-test.1 · 공개 배포 전 테스트 버전**
+**서버·웹·Android APK 0.9.5-test.1 · 공개 배포 전 테스트 버전**
 
 실리의 채팅을 읽는 개인용 웹 화면과 안드로이드 앱입니다. 각 사용자는 **자기 실리 서버**에 이 서버 플러그인을 설치하고, 앱에 자기 서버 주소를 입력합니다. 중앙 채팅 서버나 제작자 계정은 필요하지 않습니다.
 
@@ -155,7 +155,7 @@ cd ~/SillyTavern
 bash start.sh
 ```
 
-콘솔에 `[실리 책방 0.9.4-test.1] /api/plugins/silly-bookshop/`가 표시됩니다.
+콘솔에 `[실리 책방 0.9.5-test.1] /api/plugins/silly-bookshop/`가 표시됩니다.
 
 ## 채팅방을 열지 않고 바로 읽기
 

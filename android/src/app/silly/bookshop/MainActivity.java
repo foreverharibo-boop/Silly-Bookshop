@@ -68,7 +68,7 @@ public final class MainActivity extends Activity {
         root.addView(toolbar);applyTheme(prefs.getString("toolbar-theme","light"));
         WebView.setWebContentsDebuggingEnabled(false);
         web=new WebView(this);root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
-        WebSettings s=web.getSettings();s.setUserAgentString(s.getUserAgentString()+" SillyBookshop/0.9.4");s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        WebSettings s=web.getSettings();s.setUserAgentString(s.getUserAgentString()+" SillyBookshop/0.9.5");s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
         if(Build.VERSION.SDK_INT>=26)s.setSafeBrowsingEnabled(true);
         s.setSavePassword(false);
         CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
@@ -82,7 +82,7 @@ public final class MainActivity extends Activity {
             }
         });
         web.setWebViewClient(new WebViewClient(){
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,android.webkit.WebResourceError error){if(request.isForMainFrame())new BookshopDialog(MainActivity.this).setTitle("책방 연결 확인").setMessage("실리 서버에 연결하지 못했어요.\n실리 실행 상태, 서버 주소·포트, 테일스케일 연결을 확인한 뒤 화면 새로고침을 눌러 주세요.\n앱 버전 0.9.4-test.1").setPositiveButton("확인",null).show();}
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,android.webkit.WebResourceError error){if(request.isForMainFrame())new BookshopDialog(MainActivity.this).setTitle("책방 연결 확인").setMessage("실리 서버에 연결하지 못했어요.\n실리 실행 상태, 서버 주소·포트, 테일스케일 연결을 확인한 뒤 화면 새로고침을 눌러 주세요.\n앱 버전 0.9.5-test.1").setPositiveButton("확인",null).show();}
 
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest req){return !(!req.isForMainFrame() && isReaderFrame(req.getUrl().toString())) && !allowed(req.getUrl().toString());}
             @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest req){
@@ -203,7 +203,7 @@ public final class MainActivity extends Activity {
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
             try{final String next=UrlPolicy.normalize(input.getText().toString());dialog.dismiss();if(!next.equals(server)){web.stopLoading();web.loadUrl("about:blank");web.clearHistory();web.clearCache(true);WebStorage.getInstance().deleteAllData();server="";CookieManager.getInstance().removeAllCookies(done->{server=next;prefs.edit().putString("server",server).apply();openLibrary();});}else openLibrary();}
             catch(Exception e){input.setError("localhost·테일스케일 HTTP 주소 또는 HTTPS 서버 주소를 입력해 주세요.");}
-        }));dialog.show();BookshopDialog.restyle(dialog,this);
+        }));dialog.show();
     }
     @Override public void onBackPressed(){if(web.canGoBack())web.goBack();else super.onBackPressed();}
     @Override protected void onPause(){if(exporting){exporting=false;exportGeneration++;web.evaluateJavascript("window.BookshopOfflineExport?.clear()",null);}resumed=false;themeHandler.removeCallbacks(themeTick);super.onPause();web.onPause();CookieManager.getInstance().flush();}

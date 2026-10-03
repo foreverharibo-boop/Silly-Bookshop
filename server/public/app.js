@@ -10,7 +10,7 @@ let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='0.9.4-test.1';
+const UI_VERSION='0.9.5-test.1';
 let rendererLoading=null;
 function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
 function ensureRenderer(){
@@ -436,7 +436,7 @@ window.BookshopOfflineStatus={current(){return unlocked&&active&&revision&&accou
 function resetPrivateTools(){accountScope='';searchGeneration++;coverRequest++;pendingCover=undefined;editingPerson='';aliasChat='';searchChat='';$('chat-search-results').replaceChildren();$('chat-search-query').value='';$('alias-value').value='';$('alias-original').textContent='';$('cover-preview').replaceChildren();$('person-settings-title').textContent='캐릭터 책장';$('offline-state').hidden=true;}
 async function diagnose(){
  const button=$('diagnose');button.disabled=true;const appVersion=navigator.userAgent.match(/SillyBookshop\/([\d.]+)/)?.[1];$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n연결 확인 중…';
- try{const s=await api('/status');let note=!s.configured?'책방 비밀번호 설정이 필요해요.':!s.authenticated?'실리 연결 정상 · 책방 비밀번호로 잠금을 풀어 주세요.':'실리·책방 연결 정상';if(s.protocol!==2)note+='\n서버 플러그인을 업데이트해 주세요.';else if(s.version!==UI_VERSION)note+='\n서버와 화면 버전이 달라요. 화면 새로고침 후 다시 확인해 주세요.';if(appVersion&&appVersion.split('.').map(Number).reduce((a,n)=>a*1000+n,0)<9004)note+='\n새 기능을 모두 쓰려면 APK 0.9.4 이상으로 업데이트해 주세요.';$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n서버 '+s.version+'\n'+note;}catch(e){$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n'+e.message;}finally{button.disabled=false;}
+ try{const s=await api('/status');let note=!s.configured?'책방 비밀번호 설정이 필요해요.':!s.authenticated?'실리 연결 정상 · 책방 비밀번호로 잠금을 풀어 주세요.':'실리·책방 연결 정상';if(s.protocol!==2)note+='\n서버 플러그인을 업데이트해 주세요.';else if(s.version!==UI_VERSION)note+='\n서버와 화면 버전이 달라요. 화면 새로고침 후 다시 확인해 주세요.';if(appVersion&&appVersion.split('.').map(Number).reduce((a,n)=>a*1000+n,0)<9005)note+='\n새 기능을 모두 쓰려면 APK 0.9.5 이상으로 업데이트해 주세요.';$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n서버 '+s.version+'\n'+note;}catch(e){$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n'+e.message;}finally{button.disabled=false;}
 }
 $('diagnose').onclick=diagnose;$('gate-diagnose').onclick=()=>{openTools();diagnose();};
 
@@ -447,5 +447,5 @@ $('web-save').onclick=async()=>{
  try{await window.BookshopWebVault.save(async()=>{if(!unlocked||session!==authEpoch)throw Error('다시 로그인해 주세요.');const data=await api('/offline?id='+encodeURIComponent(id));if(!unlocked||session!==authEpoch)throw Error('보관 작업이 취소되었어요.');data.preferences={theme:document.documentElement.dataset.theme,font:fontFamily,size:font,bold:$('reading-bold').checked,line:$('line-spacing').value,padding:$('bubble-padding').value,messagePhotos:$('message-photos').checked};return data;});message.textContent='이 기기에 암호화해서 보관했어요. 서버가 꺼져도 보관함에서 읽을 수 있어요.';}catch(e){message.textContent=e.message;}finally{button.disabled=false;}
 };
 window.BookshopReady=true;
-(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.9.4';const nativeVersion=navigator.userAgent.match(/SillyBookshop\/([\d.]+)/)?.[1];const mismatch=state.protocol!==2?'서버 플러그인 업데이트가 필요해요.':state.version!==UI_VERSION?'서버·화면 버전이 달라요. 화면 새로고침 후 연결 진단을 확인해 주세요.':nativeVersion&&nativeVersion.split('.').map(Number).reduce((a,n)=>a*1000+n,0)<9004?'새 디자인을 오프라인에서도 쓰려면 APK 0.9.4 이상이 필요해요.':'';$('compatibility-note').textContent=mismatch;$('compatibility-note').hidden=!mismatch;if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}routeIntent();})();
+(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.9.5';const nativeVersion=navigator.userAgent.match(/SillyBookshop\/([\d.]+)/)?.[1];const mismatch=state.protocol!==2?'서버 플러그인 업데이트가 필요해요.':state.version!==UI_VERSION?'서버·화면 버전이 달라요. 화면 새로고침 후 연결 진단을 확인해 주세요.':nativeVersion&&nativeVersion.split('.').map(Number).reduce((a,n)=>a*1000+n,0)<9005?'새 디자인을 오프라인에서도 쓰려면 APK 0.9.5 이상이 필요해요.':'';$('compatibility-note').textContent=mismatch;$('compatibility-note').hidden=!mismatch;if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}routeIntent();})();
 })();

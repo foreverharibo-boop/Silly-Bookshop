@@ -35,14 +35,14 @@ public final class BookshopDialog extends AlertDialog.Builder {
             @Override public View getView(int position,View recycled,ViewGroup parent){TextView t=new TextView(context);t.setText(getItem(position));t.setTextSize(14);t.setTextColor(ink);t.setGravity(android.view.Gravity.CENTER_VERTICAL);t.setPadding(dp(16),dp(13),dp(16),dp(13));t.setMinHeight(dp(48));t.setBackground(shape(side,12));return t;}
         };return super.setAdapter(adapter,listener);
     }
-    @Override public AlertDialog create(){AlertDialog d=super.create();d.setOnShowListener(which->style(d));return d;}
+    @Override public AlertDialog create(){AlertDialog d=super.create();d.create();style(d);return d;}
     private void tint(View v){
         if(v instanceof TextView)((TextView)v).setTextColor(ink);
         if(v instanceof EditText){v.setBackgroundTintList(ColorStateList.valueOf(line));((EditText)v).setHintTextColor(ink);}
         if(v instanceof ViewGroup)for(int i=0;i<((ViewGroup)v).getChildCount();i++)tint(((ViewGroup)v).getChildAt(i));
     }
     private void style(AlertDialog d){
-        Window w=d.getWindow();if(w==null)return;w.setBackgroundDrawable(shape(paper,24));w.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);w.setDimAmount(.35f);
+        Window w=d.getWindow();if(w==null)return;w.setGravity(Gravity.CENTER);w.setWindowAnimations(0);w.setBackgroundDrawable(shape(paper,24));w.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);w.setDimAmount(.35f);
         int width=Math.min(dp(420),context.getResources().getDisplayMetrics().widthPixels-dp(36));w.setLayout(width,ViewGroup.LayoutParams.WRAP_CONTENT);tint(w.getDecorView());
         ListView list=d.getListView();if(list!=null){list.setDivider(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));list.setDividerHeight(dp(6));list.setPadding(dp(18),dp(2),dp(18),dp(18));list.setBackgroundColor(Color.TRANSPARENT);}
         // Replace the platform button bar layout, retaining the original Button objects
@@ -77,5 +77,4 @@ public final class BookshopDialog extends AlertDialog.Builder {
             b.setPadding(dp(10),dp(4),dp(10),dp(4));
         }
     }
-    public static void restyle(AlertDialog d,Context context){new BookshopDialog(context).style(d);}
 }
