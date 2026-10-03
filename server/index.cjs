@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs'),reading=require('./reading.cjs'),shelf=require('./shelf.cjs'),search=require('./search.cjs');
-const BASE='/api/plugins/silly-bookshop',VERSION='0.8.1-test.1';
+const BASE='/api/plugins/silly-bookshop',VERSION='0.9.0-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -27,7 +27,7 @@ async function init(router){
         return s;
     }
     router.use(wrap(async(req,res,next)=>{
-        res.set({'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"});
+        res.set({'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"});
         for(const h of ['Access-Control-Allow-Origin','Access-Control-Allow-Credentials','Access-Control-Allow-Headers','Access-Control-Allow-Methods'])res.removeHeader(h);
         if(!req.user?.directories?.root||!req.user.directories.chats||!req.user.directories.groupChats)throw c.fail(403,'먼저 실리에 로그인해 주세요.');
         if(!security.transportAllowed(req))throw c.fail(403,'책방은 같은 폰의 localhost, 테일스케일 또는 HTTPS 연결에서 열어 주세요.');
@@ -41,11 +41,12 @@ async function init(router){
         next();
     }));
     router.get('/',(req,res)=>req.originalUrl.split('?')[0].endsWith('/')?res.sendFile(path.join(__dirname,'public/index.html')):res.redirect(BASE+'/'));
-    for(const name of ['app.js','rich.js','style.css','icon.svg','vendor/purify.min.js','vendor/showdown.min.js'])router.get('/'+name,(req,res)=>res.sendFile(path.join(__dirname,'public',name)));
+    for(const name of ['app.js','rich.js','style.css','icon.svg','icon-192.png','icon-512.png','vendor/purify.min.js','vendor/showdown.min.js','web-vault.js','web-vault.css','vault.html','sw.js','web-reader.js','web-reader.css','manifest.json'])router.get('/'+name,(req,res)=>res.sendFile(path.join(__dirname,'public',name)));
     for(const family of ['NanumGothic','NanumMyeongjo','GowunBatang'])for(const weight of ['Regular','Bold']){
         const name=family+'-'+weight+'.woff2';
         router.get('/fonts/'+name,(req,res)=>{res.set('Cache-Control','private, max-age=86400');res.sendFile(path.join(__dirname,'public/fonts',name));});
     }
+    router.get('/web-reader.html',(req,res)=>{res.set('X-Frame-Options','SAMEORIGIN');res.set('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src data:; font-src 'self'; frame-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'");res.sendFile(path.join(__dirname,'public/web-reader.html'));});
     router.get('/fonts/RIDIBatang-Regular.woff2',(req,res)=>{res.set('Cache-Control','private, max-age=86400');res.sendFile(path.join(__dirname,'public/fonts/RIDIBatang-Regular.woff2'));});
     router.get('/status',wrap(async(req,res)=>{
         statusRate(req.socket.remoteAddress);

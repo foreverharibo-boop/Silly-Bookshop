@@ -1,0 +1,10 @@
+"use strict";
+const VERSION='0.9.0-test.1',PREFIX='silly-bookshop-shell-',CACHE=PREFIX+VERSION,BASE=new URL('./',self.location).pathname;
+const ASSETS=['vault.html','web-vault.js','web-vault.css','web-reader.html','web-reader.js','web-reader.css','rich.js','style.css','icon.svg','icon-192.png','icon-512.png','manifest.json',
+...['NanumGothic','NanumMyeongjo','GowunBatang'].flatMap(f=>['Regular','Bold'].map(w=>'fonts/'+f+'-'+w+'.woff2')),'fonts/RIDIBatang-Regular.woff2'];
+self.addEventListener('install',event=>event.waitUntil((async()=>{const cache=await caches.open(CACHE);try{for(const asset of ASSETS){const url=BASE+asset,r=await fetch(url,{cache:'reload',credentials:'same-origin'});const type=r.headers.get('content-type')||'';if(!r.ok||r.redirected||new URL(r.url).pathname!==url||(asset.endsWith('.js')&&!/javascript/.test(type))||(asset.endsWith('.html')&&!/text\/html/.test(type)))throw Error('Offline files unavailable');await cache.put(url,r);}await self.skipWaiting();}catch(e){await caches.delete(CACHE);throw e;}})()));
+self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const name of await caches.keys())if(name.startsWith(PREFIX)&&name!==CACHE)await caches.delete(name);await self.clients.claim();})()));
+self.addEventListener('fetch',event=>{const u=new URL(event.request.url);if(event.request.method!=='GET'||u.origin!==self.location.origin)return;const rel=u.pathname.slice(BASE.length);if(!u.pathname.startsWith(BASE))return;
+if(ASSETS.includes(rel)){event.respondWith((async()=>{const cached=await (await caches.open(CACHE)).match(BASE+rel);return cached||fetch(event.request);})());return;}
+if(event.request.mode==='navigate'&&(u.pathname===BASE||u.pathname===BASE.slice(0,-1))){event.respondWith((async()=>{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),4500);try{const r=await fetch(event.request,{signal:controller.signal,cache:'no-store'});if(r.ok)return r;throw Error();}catch{return (await (await caches.open(CACHE)).match(BASE+'vault.html'))||Response.error();}finally{clearTimeout(timer);}})());}
+});

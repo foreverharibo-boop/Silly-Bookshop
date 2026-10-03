@@ -18,7 +18,7 @@ for p in sorted(root.rglob('*')):
     if p.is_symlink():raise SystemExit('Refusing symlink: '+rel)
     if not p.is_file():continue
     if secret_name.fullmatch(p.name) or any(n in {'signing','.silly-bookshop','.sili-library'} for n in parts):raise SystemExit('Private file found. Move it outside repository: '+rel)
-    allowed=(rel.startswith('server/public/fonts/') and p.suffix in {'.woff2','.txt'}) or rel in top or (parts[0] in trees and p.suffix in allowed_suffix) or rel in android_files or (rel.startswith(android_trees) and p.suffix in allowed_suffix)
+    allowed=rel in {'server/public/icon-192.png','server/public/icon-512.png'} or (rel.startswith('server/public/fonts/') and p.suffix in {'.woff2','.txt'}) or rel in top or (parts[0] in trees and p.suffix in allowed_suffix) or rel in android_files or (rel.startswith(android_trees) and p.suffix in allowed_suffix)
     if not allowed:raise SystemExit('Unreviewed file outside public allowlist: '+rel)
     if secret_text.search(p.read_bytes()):raise SystemExit('Potential secret pattern: '+rel)
     files.append(p)

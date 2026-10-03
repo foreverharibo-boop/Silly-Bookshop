@@ -1,8 +1,10 @@
 # 깃허브 업로드와 APK 배포
 
+이번 서버·웹 버전은 0.9.0-test.1이며 Android APK는 0.8.1-test.1을 그대로 사용합니다.
+
 ## 공개 저장소에 올릴 것
 
-`silly-bookshop-github-0.8.1-test.1.zip`을 압축 해제한 **silly-bookshop 폴더 안의 내용**을 업로드합니다. 저장소의 최상위에 `package.json`이 있어야 합니다. ZIP 파일만 올리거나 폴더를 한 단계 더 감싸면 플러그인으로 바로 로드되지 않습니다.
+`silly-bookshop-github-0.9.0-test.1.zip`을 압축 해제한 **silly-bookshop 폴더 안의 내용**을 업로드합니다. 저장소의 최상위에 `package.json`이 있어야 합니다. ZIP 파일만 올리거나 폴더를 한 단계 더 감싸면 플러그인으로 바로 로드되지 않습니다.
 
 이 ZIP에는 앱 서명 키, 암호 파일, 채팅, 실리 설정, 사용자 인증 파일, APK, 과거 Git 이력이 포함되지 않습니다. `.gitignore`만 믿지 않고 공개 파일 허용 목록을 기준으로 생성합니다.
 
