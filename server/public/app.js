@@ -10,7 +10,7 @@ let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='0.9.0-test.1';
+const UI_VERSION='0.9.1-test.1';
 let rendererLoading=null;
 function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
 function ensureRenderer(){
@@ -43,7 +43,27 @@ function applyReading(){
     window.BookshopRich?.refresh(scroller);
 }
 applyReading();
-document.documentElement.dataset.native=String(navigator.userAgent.includes('SillyBookshop/'));
+const nativeApp=navigator.userAgent.includes('SillyBookshop/');
+const installedMode=matchMedia('(display-mode: standalone)');
+const appleDevice=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const pageNavigation=()=>nativeApp||(appleDevice&&(navigator.standalone===true||installedMode.matches));
+const compactNavigation=()=>pageNavigation()||matchMedia('(max-width:640px)').matches;
+document.documentElement.dataset.native=String(nativeApp);
+// Update an already installed shell before old cached CSS/renderer linger after a server patch.
+if(!nativeApp&&window.isSecureContext&&'serviceWorker' in navigator){
+ navigator.serviceWorker.getRegistration(base+'/').then(reg=>{
+  if(!reg?.active)return;
+  let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',async()=>{if(reloading)return;reloading=true;await Promise.race([save(),new Promise(resolve=>setTimeout(resolve,1000))]);location.reload();});
+  reg.update().catch(()=>{});
+ }).catch(()=>{});
+}
+
+function syncScreen(){document.documentElement.dataset.navigation=pageNavigation()?'pages':'sidebar';$('library').dataset.screen=active&&prefs.get('view','home')==='chat'?'chat':'home';}
+installedMode.addEventListener?.('change',syncScreen);syncScreen();
+$('message-photos').checked=prefs.get('message-photos','true')!=='false';
+function applyMessagePhotos(){document.documentElement.dataset.messagePhotos=String($('message-photos').checked);}
+applyMessagePhotos();$('message-photos').onchange=()=>readingChange(()=>{prefs.set('message-photos',String($('message-photos').checked));applyMessagePhotos();});
 for(const [id,key,allowed,fallback] of [['line-spacing','line-spacing',['1.5','1.85','2.2'],'1.85'],['bubble-padding','bubble-padding',['12','24','36'],'24']]){
  const stored=prefs.get(key,fallback);$(id).value=allowed.includes(stored)?stored:fallback;
  const apply=()=>{document.documentElement.style.setProperty(id==='line-spacing'?'--reading-line':'--bubble-padding',$(id).value+(id==='bubble-padding'?'px':''));window.BookshopRich?.refresh(scroller);};
@@ -80,7 +100,7 @@ $('bookmarks-open').onclick=()=>{if(!active){status('먼저 대화를 골라 주
 // Android pulls bounded data from this object; no page-to-native JavaScript bridge.
 let exportValue='',exportState={state:'idle'},exportEpoch=0;
 window.BookshopOfflineExport={
- begin(){const token=++exportEpoch;exportValue='';if(!unlocked||!active){exportState={state:'error',message:'먼저 보관할 대화를 열어 주세요.'};return;}exportState={state:'loading'};api('/offline?id='+encodeURIComponent(active)).then(data=>{if(token!==exportEpoch||!unlocked)return;data.preferences={theme:document.documentElement.dataset.theme,font:fontFamily,size:font,bold:$('reading-bold').checked,line:$('line-spacing').value,padding:$('bubble-padding').value};exportValue=JSON.stringify(data);if(exportValue.length>18*1024*1024)throw new Error('오프라인 보관 크기를 넘었어요.');exportState={state:'ready',length:exportValue.length};}).catch(e=>{if(token===exportEpoch){exportValue='';exportState={state:'error',message:e.message};}});},
+ begin(){const token=++exportEpoch;exportValue='';if(!unlocked||!active){exportState={state:'error',message:'먼저 보관할 대화를 열어 주세요.'};return;}exportState={state:'loading'};api('/offline?id='+encodeURIComponent(active)).then(data=>{if(token!==exportEpoch||!unlocked)return;data.preferences={theme:document.documentElement.dataset.theme,font:fontFamily,size:font,bold:$('reading-bold').checked,line:$('line-spacing').value,padding:$('bubble-padding').value,messagePhotos:$('message-photos').checked};exportValue=JSON.stringify(data);if(exportValue.length>18*1024*1024)throw new Error('오프라인 보관 크기를 넘었어요.');exportState={state:'ready',length:exportValue.length};}).catch(e=>{if(token===exportEpoch){exportValue='';exportState={state:'error',message:e.message};}});},
  status(){return exportState;},chunk(offset){return Number.isSafeInteger(offset)&&offset>=0?exportValue.slice(offset,offset+32768):'';},clear(){exportEpoch++;exportValue='';exportState={state:'idle'};}
 };
 function closeDialogs(){document.querySelectorAll('dialog[open]').forEach(d=>d.close());}
@@ -206,7 +226,7 @@ async function save(keepalive=false){
     try{await api('/position',{id,position:pos},keepalive);if(pendingPositions.get(id)===pos)pendingPositions.delete(id);if(id===active)status('읽던 위치 저장됨 · 자동 연동 중');}
     catch(e){if(id===active){scrollDirty=true;status('위치 저장 실패 · '+e.message);}}
 }
-function fold(value){const p=position(),mobile=matchMedia('(max-width:640px)').matches;if(mobile&&active&&!value)save();$('library').classList.toggle('collapsed',value);$('fold').setAttribute('aria-expanded',String(!value));$('fold').setAttribute('aria-label',value?'목록 펼치기':'목록 접기');prefs.set('collapsed',String(value));if(mobile&&active)prefs.set('view',value?'chat':'home');if(active&&p&&(!mobile||value))restore(p);}
+function fold(value){const p=position(),mobile=compactNavigation();if(!active)value=false;if(mobile&&active&&!value)save();$('library').classList.toggle('collapsed',value);$('fold').setAttribute('aria-expanded',String(!value));$('fold').setAttribute('aria-label',value?'목록 펼치기':'목록 접기');prefs.set('collapsed',String(value));if(mobile&&active)prefs.set('view',value?'chat':'home');syncScreen();if(active&&p&&(!mobile||value))restore(p);}
 $('fold').onclick=()=>fold(!$('library').classList.contains('collapsed'));
 function renderLists(){
     $('characters').querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
@@ -250,14 +270,14 @@ function clearSelection(message){
     window.BookshopRich?.clear(scroller);scroller.replaceChildren(node('p','notice',message));
     active='';revision='';lastPosition=null;start=0;total=0;prefs.set('last','');
     $('title').textContent='대화를 골라 주세요';$('person').textContent='현재 실리의 책장';$('latest').hidden=true;$('first').hidden=true;
-    status(message);if(matchMedia('(max-width:640px)').matches)fold(false);
+    status(message);prefs.set('view','home');fold(false);syncScreen();
 }
 function goHome(){
     setFocus(false);save();closeDialogs();prefs.set('view','home');prefs.set('character','');
     clearSelection('캐릭터를 골라 이야기를 펼쳐보세요.');character='';$('search').value='';fold(false);renderLists();
     if(unlocked)catalog().catch(e=>status(e.message));
 }
-$('home').onclick=goHome;
+$('home').onclick=goHome;$('web-home').onclick=goHome;
 async function catalog(){
     const ticket=++catalogRequest,data=await api('/catalog');
     if(!unlocked||ticket!==catalogRequest)return false;
@@ -273,11 +293,11 @@ function renderChat(data,pos){
     revision=data.revision;start=data.start;total=data.total;window.BookshopRich?.clear(scroller);scroller.replaceChildren();
     if(start>0){const b=node('button','page-button','이전 대화 읽기 ↑');b.onclick=()=>page(Math.max(0,start-30));scroller.append(b);}
     for(const m of data.messages){
-        const item=node('article','message'+(m.user?' user':'')+(m.system?' system':''));item.dataset.index=String(m.index);
+        const isCharacter=m.characterSpeech??(!m.user&&!m.system);const item=node('article','message'+(m.user?' user':'')+(m.system&&!isCharacter?' system':''));item.dataset.index=String(m.index);
         const by=node('div','byline');
         const meta=chats.find(c=>c.id===active);
-        if(!m.user&&!m.system)by.append(avatar(m.name,chatPicture(meta),'avatar message-avatar'));
-        by.append(node('span','',m.name),node('small','',m.system?'시스템 · '+m.date:m.date));const mark=node('button','bookmark-button','☆');mark.dataset.bookmarkIndex=m.index;mark.onclick=()=>editBookmark(m.index);by.append(mark);
+        if(isCharacter)by.append(avatar(m.name,chatPicture(meta),'avatar message-avatar'));
+        by.append(node('span','',m.name),node('small','',m.system&&!isCharacter?'시스템 · '+m.date:m.date));const mark=node('button','bookmark-button','☆');mark.dataset.bookmarkIndex=m.index;mark.onclick=()=>editBookmark(m.index);by.append(mark);
         const bubble=node('div','bubble');item.append(by,bubble);scroller.append(item);
         if(typeof m.content==='string'){
             const content=node('div','message-content');bubble.append(content);
@@ -308,7 +328,7 @@ async function openChat(id,requestedStart){
     $('offline-state').hidden=true;active=id;revision='';lastPosition=null;scrollDirty=false;
     const meta=chats.find(c=>c.id===id);if(meta){character=meta.characterKey||meta.character;$('person').textContent=meta.character+'와 나눈 대화';$('title').textContent=chatTitle(meta);}
     prefs.set('last',id);prefs.set('view','chat');prefs.set('character',character);renderLists();
-    if(matchMedia('(max-width:640px)').matches)fold(true);
+    if(compactNavigation())fold(true);else fold(prefs.get('collapsed','false')==='true');syncScreen();
     window.BookshopRich?.clear(scroller);scroller.replaceChildren(node('p','notice','대화를 불러오고 있어요…'));status('대화 불러오는 중');
     try{
         await Promise.race([saving,new Promise(resolve=>setTimeout(resolve,1000))]);
@@ -336,7 +356,7 @@ async function poll(){
 }
 async function enter(){
     unlocked=true;$('gate').hidden=true;$('library').hidden=false;$('password').value='';
-    fold(prefs.get('collapsed','false')==='true');
+    syncScreen();
     try{await catalog();const last=prefs.get('last','');if(location.hash!=='#home'&&prefs.get('view','home')==='chat'&&chats.some(c=>c.id===last))await openChat(last);else{prefs.set('view','home');character=prefs.get('character','');renderLists();fold(false);}}
     catch(e){status(e.message);}
     clearInterval(pollTimer);pollTimer=setInterval(poll,5000);
@@ -416,7 +436,7 @@ window.BookshopOfflineStatus={current(){return unlocked&&active&&revision&&accou
 function resetPrivateTools(){accountScope='';searchGeneration++;coverRequest++;pendingCover=undefined;editingPerson='';aliasChat='';searchChat='';$('chat-search-results').replaceChildren();$('chat-search-query').value='';$('alias-value').value='';$('alias-original').textContent='';$('cover-preview').replaceChildren();$('person-settings-title').textContent='캐릭터 책장';$('offline-state').hidden=true;}
 async function diagnose(){
  const button=$('diagnose');button.disabled=true;const appVersion=navigator.userAgent.match(/SillyBookshop\/([\d.]+)/)?.[1];$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n연결 확인 중…';
- try{const s=await api('/status');let note=!s.configured?'책방 비밀번호 설정이 필요해요.':!s.authenticated?'실리 연결 정상 · 책방 비밀번호로 잠금을 풀어 주세요.':'실리·책방 연결 정상';if(s.protocol!==2)note+='\n서버 플러그인을 업데이트해 주세요.';else if(s.version!==UI_VERSION)note+='\n서버와 화면 버전이 달라요. 화면 새로고침 후 다시 확인해 주세요.';if(appVersion&&appVersion.split('.').map(Number).reduce((a,n)=>a*1000+n,0)<8001)note+='\n새 기능을 모두 쓰려면 APK 0.8.1 이상으로 업데이트해 주세요.';$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n서버 '+s.version+'\n'+note;}catch(e){$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n'+e.message;}finally{button.disabled=false;}
+ try{const s=await api('/status');let note=!s.configured?'책방 비밀번호 설정이 필요해요.':!s.authenticated?'실리 연결 정상 · 책방 비밀번호로 잠금을 풀어 주세요.':'실리·책방 연결 정상';if(s.protocol!==2)note+='\n서버 플러그인을 업데이트해 주세요.';else if(s.version!==UI_VERSION)note+='\n서버와 화면 버전이 달라요. 화면 새로고침 후 다시 확인해 주세요.';if(appVersion&&appVersion.split('.').map(Number).reduce((a,n)=>a*1000+n,0)<9001)note+='\n새 기능을 모두 쓰려면 APK 0.9.1 이상으로 업데이트해 주세요.';$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n서버 '+s.version+'\n'+note;}catch(e){$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n'+e.message;}finally{button.disabled=false;}
 }
 $('diagnose').onclick=diagnose;$('gate-diagnose').onclick=()=>{openTools();diagnose();};
 
@@ -424,8 +444,8 @@ $('web-save').onclick=async()=>{
  const button=$('web-save'),message=$('web-save-status');
  if(!unlocked||!active){message.textContent='먼저 보관할 대화를 열어 주세요.';return;}
  const id=active,session=authEpoch;button.disabled=true;message.textContent='보관함을 준비하고 있어요…';
- try{await window.BookshopWebVault.save(async()=>{if(!unlocked||session!==authEpoch)throw Error('다시 로그인해 주세요.');const data=await api('/offline?id='+encodeURIComponent(id));if(!unlocked||session!==authEpoch)throw Error('보관 작업이 취소되었어요.');data.preferences={theme:document.documentElement.dataset.theme,font:fontFamily,size:font,bold:$('reading-bold').checked,line:$('line-spacing').value,padding:$('bubble-padding').value};return data;});message.textContent='이 기기에 암호화해서 보관했어요. 서버가 꺼져도 보관함에서 읽을 수 있어요.';}catch(e){message.textContent=e.message;}finally{button.disabled=false;}
+ try{await window.BookshopWebVault.save(async()=>{if(!unlocked||session!==authEpoch)throw Error('다시 로그인해 주세요.');const data=await api('/offline?id='+encodeURIComponent(id));if(!unlocked||session!==authEpoch)throw Error('보관 작업이 취소되었어요.');data.preferences={theme:document.documentElement.dataset.theme,font:fontFamily,size:font,bold:$('reading-bold').checked,line:$('line-spacing').value,padding:$('bubble-padding').value,messagePhotos:$('message-photos').checked};return data;});message.textContent='이 기기에 암호화해서 보관했어요. 서버가 꺼져도 보관함에서 읽을 수 있어요.';}catch(e){message.textContent=e.message;}finally{button.disabled=false;}
 };
 window.BookshopReady=true;
-(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.9.0';const nativeVersion=navigator.userAgent.match(/SillyBookshop\/([\d.]+)/)?.[1];const mismatch=state.protocol!==2?'서버 플러그인 업데이트가 필요해요.':state.version!==UI_VERSION?'서버·화면 버전이 달라요. 화면 새로고침 후 연결 진단을 확인해 주세요.':nativeVersion&&nativeVersion.split('.').map(Number).reduce((a,n)=>a*1000+n,0)<8001?'표지 선택·보관 상태 기능에는 APK 0.8.1 이상이 필요해요.':'';$('compatibility-note').textContent=mismatch;$('compatibility-note').hidden=!mismatch;if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}routeIntent();})();
+(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.9.1';const nativeVersion=navigator.userAgent.match(/SillyBookshop\/([\d.]+)/)?.[1];const mismatch=state.protocol!==2?'서버 플러그인 업데이트가 필요해요.':state.version!==UI_VERSION?'서버·화면 버전이 달라요. 화면 새로고침 후 연결 진단을 확인해 주세요.':nativeVersion&&nativeVersion.split('.').map(Number).reduce((a,n)=>a*1000+n,0)<9001?'오프라인 프사 설정까지 쓰려면 APK 0.9.1 이상이 필요해요.':'';$('compatibility-note').textContent=mismatch;$('compatibility-note').hidden=!mismatch;if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}routeIntent();})();
 })();

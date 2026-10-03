@@ -45,5 +45,5 @@ PY
 signed_apk="$(mktemp "${TMPDIR:-/tmp}/silly-bookshop-signed.XXXXXX.apk")"
 trap 'rm -f "$signed_apk" "$signed_apk.idsig"' EXIT
 "$SILLY_BUILD_TOOLS/apksigner" sign --ks "$SILLY_KEYSTORE" --ks-pass "file:$SILLY_KEY_PASSWORD_FILE" --out "$signed_apk" build/aligned.apk
-cp "$signed_apk" ../dist/silly-bookshop-0.8.1-test.1.apk
-"$SILLY_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-0.8.1-test.1.apk
+cp "$signed_apk" ../dist/silly-bookshop-0.9.1-test.1.apk
+"$SILLY_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-0.9.1-test.1.apk

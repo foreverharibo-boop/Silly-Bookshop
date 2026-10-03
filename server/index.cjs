@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs'),reading=require('./reading.cjs'),shelf=require('./shelf.cjs'),search=require('./search.cjs');
-const BASE='/api/plugins/silly-bookshop',VERSION='0.9.0-test.1';
+const BASE='/api/plugins/silly-bookshop',VERSION='0.9.1-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -51,7 +51,7 @@ async function init(router){
     router.get('/status',wrap(async(req,res)=>{
         statusRate(req.socket.remoteAddress);
         const conf=await c.authConfig(req.user.directories.root);
-        res.json({configured:!!conf,authenticated:!!authenticated(req,conf),version:VERSION,protocol:2,minAppVersion:'0.8.1'});
+        res.json({configured:!!conf,authenticated:!!authenticated(req,conf),version:VERSION,protocol:2,minAppVersion:'0.9.1'});
     }));
     router.post('/login',wrap(async(req,res)=>{
         const root=req.user.directories.root,now=Date.now();

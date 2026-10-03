@@ -49,7 +49,9 @@ function transform(text,m,config){
     return hideReasoning(value,config.reasoning);
 }
 function project(m,config){
-    const result={index:m.index,name:m.name,user:m.user,system:m.system,date:m.date};
+    const sameName=String(m.name||'').trim().normalize('NFC')===String(config.character||'').trim().normalize('NFC');
+    const characterSpeech=!m.user&&m.placement!==3&&(!m.system||!!(config.avatar&&sameName)||!!(m.originalAvatar&&m.originalAvatar===config.avatar));
+    const result={index:m.index,name:m.name,user:m.user,system:m.system,characterSpeech,date:m.date};
     try{
         const main=m.displayText!==null?m.displayText:(m.translations[0]?.text??m.text);
         result.content=transform(main,m,config);result.format='markdown';result.translated=m.displayText!==null||!!m.translations.length;

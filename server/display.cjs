@@ -59,7 +59,7 @@ async function load(dirs,id){
 }
 async function render(messages,context,metadata={}){
     const local={};for(const [key,value]of Object.entries(metadata.variables||{}))if(['string','number','boolean'].includes(typeof value))local['getvar::'+key]=String(value);
-    const configs=messages.map(m=>{const avatar=context.baseAvatar||m.originalAvatar;return {scripts:[...context.common,...(context.cards[avatar]||[])],character:context.names[avatar]||m.name,user:context.user,reasoning:context.reasoning,variables:{...context.variables,...local},chatid:context.chatid};});
+    const configs=messages.map(m=>{const avatar=context.baseAvatar||m.originalAvatar;return {scripts:[...context.common,...(context.cards[avatar]||[])],avatar,character:context.names[avatar]||m.name,user:context.user,reasoning:context.reasoning,variables:{...context.variables,...local},chatid:context.chatid};});
     if(!messages.length)return [];
     return new Promise((resolve,reject)=>{
         const worker=new Worker(path.join(__dirname,'display-worker.cjs'),{workerData:{messages,configs},resourceLimits:{maxOldGenerationSizeMb:96,maxYoungGenerationSizeMb:16}});let finished=false;

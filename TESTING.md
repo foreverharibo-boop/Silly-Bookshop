@@ -1,6 +1,13 @@
 # 검증 기록 / 공개 전 남은 실기 테스트
 
-버전: **서버·웹 0.9.0-test.1 / APK 0.8.1-test.1 / 브라우저 확장 없음**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
+버전: **서버·웹·APK 0.9.1-test.1 / 브라우저 확장 없음**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
+
+## 0.9.1 화면/프사 검증
+
+- `navigation-browser.cjs`: Chromium에서 Windows·Android 앱 UA·iPhone standalone·iPad 데스크톱 UA standalone 조건을 재현. 홈/대화 분리, 삼선 유지/숨김, 카드 발화 프사와 시스템/나레이터 제외, 프사 토글·새로고침 유지, 홈에서 대화 재진입 시 읽던 위치 확인.
+- `offline-browser.cjs`: 시스템 플래그가 있는 캐릭터 발화의 오프라인 프사와 토글 확인. 외부 요청/스크립트 차단 유지.
+- 기존 서버 테스트와 개인화 테스트, APK 빌드/서명 검증을 수행합니다. 이 검사는 실제 Android WebView/iOS Safari 실행과 동일하지 않습니다.
+- [ ] 실제 Galaxy 앱 및 iPhone/iPad 홈 화면 앱에서 설치/업데이트 후 동작 확인.
 
 ## 0.9.0 웹 보관함 검증
 
@@ -10,7 +17,7 @@
 - 기존 서버 단위 테스트, HTTP 인증/계정 분리, 개인화 브라우저 검사 유지.
 - [ ] 실제 iPhone/iPad Safari: HTTPS에서 홈 화면 설치 후 준비/보관, 서버 종료, 앱 강제 종료/재실행, 키보드/파일 다운로드/복원, 저장 공간 제한 안내.
 - [ ] PC Chrome/Edge/Firefox/Safari 및 Android 브라우저에서 실제 기기 검증.
-- APK 기능 변경은 없으므로 기존 0.8.1 APK를 사용합니다.
+- 0.9.0 당시 APK 변경은 없었습니다. 0.9.1의 오프라인 프사 설정에는 새 APK가 필요합니다.
 
 ## 0.8.1 변경 검증
 
@@ -189,7 +196,7 @@ java -cp /tmp/silly-url-test UrlPolicyTest
 
 - 패키지: `app.silly.bookshop`
 - 표시 이름: 실리 책방
-- versionCode: 12 / versionName: 0.8.1-test.1
+- versionCode: 13 / versionName: 0.9.1-test.1
 - Android API 26 이상 / target API 35
 - 앱이 요청하는 권한: INTERNET
 - 서명 인증서 SHA-256: `d7ca695de38f3708bee090e88d8a4306bb05f332575b49cbbe1ea0db395ddfae`

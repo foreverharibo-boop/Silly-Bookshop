@@ -30,6 +30,7 @@ async function snapshot(dirs,id,cancelled=()=>false){
  const entries=await shelf.decorate(dirs,await c.catalog(dirs,{withCharacters:true})),meta=entries.chats.find(x=>x.id===id);
  if(!meta)throw c.fail(404,'현재 실리에 있는 대화만 보관할 수 있어요.');
  const person=entries.characters.find(x=>x.key===meta.characterKey);if(person?.cover)meta.photo='data:image/png;base64,'+(await shelf.cover(dirs,person.key)).toString('base64');
+ if(!meta.photo&&meta.avatar){try{const photo=await c.avatar(dirs,meta.avatar);if(photo.length<=4*1024*1024)meta.photo='data:image/png;base64,'+photo.toString('base64');}catch{}}
  const file=await c.chatFile(dirs,id),context=await display.load(dirs,id),before=revision(await fs.stat(file),context),parsed=c.parseChat(await c.readText(file,32*1024*1024));
  if(parsed.messages.length>5000)throw c.fail(413,'오프라인 보관은 한 대화에 최대 5,000개 메시지까지 지원해요.');
  const messages=[];let bytes=0;

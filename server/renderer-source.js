@@ -1,7 +1,7 @@
 'use strict';
 // No remote assets and no code supplied by chat messages executes in this reader.
 window.BookshopRich=(()=>{
-    const fontFaces=['Gothic','Myeongjo','Batang'].flatMap((name,i)=>['Regular','Bold'].map((weight,j)=>'@font-face{font-family:"Bookshop '+name+'";font-style:normal;font-weight:'+(j?700:400)+';font-display:swap;src:url("/api/plugins/silly-bookshop/fonts/'+['NanumGothic','NanumMyeongjo','GowunBatang'][i]+'-'+weight+'.woff2?v=0.9.0-test.1") format("woff2")}')).join('')+'@font-face{font-family:"Bookshop RIDI";font-style:normal;font-weight:400;font-display:swap;src:url("/api/plugins/silly-bookshop/fonts/RIDIBatang-Regular.woff2?v=0.9.0-test.1") format("woff2")}';
+    const fontFaces=['Gothic','Myeongjo','Batang'].flatMap((name,i)=>['Regular','Bold'].map((weight,j)=>'@font-face{font-family:"Bookshop '+name+'";font-style:normal;font-weight:'+(j?700:400)+';font-display:swap;src:url("/api/plugins/silly-bookshop/fonts/'+['NanumGothic','NanumMyeongjo','GowunBatang'][i]+'-'+weight+'.woff2?v=0.9.1-test.1") format("woff2")}')).join('')+'@font-face{font-family:"Bookshop RIDI";font-style:normal;font-weight:400;font-display:swap;src:url("/api/plugins/silly-bookshop/fonts/RIDIBatang-Regular.woff2?v=0.9.1-test.1") format("woff2")}';
     const forbidden=['script','iframe','frame','frameset','object','embed','base','meta','link','form','input','textarea','select','button','audio','video','source','track','animate','animatetransform','set','foreignobject'];
     const config={FORBID_TAGS:forbidden,FORBID_ATTR:['srcset','href','xlink:href','action','formaction','poster','background','ping','autofocus','tabindex','contenteditable','is'],ADD_TAGS:['style'],ADD_ATTR:['style','open'],FORCE_BODY:true};
     const networkValue=/url\s*\(|image-set\s*\(|https?:|\/\/|\\/i;
@@ -49,5 +49,5 @@ window.BookshopRich=(()=>{
     }
     function refresh(root){root.querySelectorAll('iframe.rich-output').forEach(frame=>{try{syncFrame(frame);}catch{}});}
     function clear(root){root.querySelectorAll('iframe.rich-output').forEach(frame=>frame._bookshopDispose?.());}
-    return {mount,refresh,clear,version:'0.9.0-test.1'};
+    return {mount,refresh,clear,version:'0.9.1-test.1'};
 })();
