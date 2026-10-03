@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fail closed for secret-shaped files, then export only explicit public roots."""
 from pathlib import Path
-import hashlib,json,re,sys,zipfile,subprocess
+import hashlib,json,re,sys,zipfile,subprocess,xml.etree.ElementTree as ET
 root=Path(__file__).resolve().parents[1]
 subprocess.run(['node',str(root/'scripts/build-renderer.cjs'),'--check'],check=True)
 top={'.gitignore','.gitattributes','package.json','setup.cjs','README.md','SECURITY.md','TESTING.md','PUBLISHING.md','CHANGELOG.md','RELEASE_NOTES.md'}
@@ -35,7 +35,8 @@ with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
 with zipfile.ZipFile(output) as archive:
     assert archive.testzip() is None
     assert not any(secret_name.fullmatch(Path(name).name) for name in archive.namelist())
-apk=dest/('silly-bookshop-'+version+'.apk')
+android_version=ET.parse(root/'android/AndroidManifest.xml').getroot().attrib['{http://schemas.android.com/apk/res/android}versionName']
+apk=dest/('silly-bookshop-'+android_version+'.apk')
 artifacts=[output]+([apk] if apk.is_file() else [])
 (dest/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in artifacts))
 print(output.name)

@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs'),reading=require('./reading.cjs'),shelf=require('./shelf.cjs'),search=require('./search.cjs');
-const BASE='/api/plugins/silly-bookshop',VERSION='1.0.1-test.1';
+const BASE='/api/plugins/silly-bookshop',VERSION='1.0.1';
 const localHttps=require('./local-https.cjs');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
