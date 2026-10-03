@@ -27,7 +27,7 @@ p=Path('build/assets/offline')
 if p.exists():shutil.rmtree(p)
 p.mkdir(parents=True)
 for f in Path('offline').iterdir():shutil.copy2(f,p/f.name)
-for name in ['rich.js','style.css']:shutil.copy2(Path('../server/public')/name,p/name)
+for name in ['rich.js','style.css','pickers.js']:shutil.copy2(Path('../server/public')/name,p/name)
 shutil.copytree('../server/public/fonts',p/'fonts')
 ASSETS
 if [ -n "${SILLY_ECJ:-}" ]; then
@@ -47,5 +47,5 @@ PY
 "$SILLY_BUILD_TOOLS/zipalign" -f 4 "$build_work/unsigned.apk" "$build_work/aligned.apk"
 signed_apk="$build_work/signed.apk"
 "$SILLY_BUILD_TOOLS/apksigner" sign --ks "$SILLY_KEYSTORE" --ks-pass "file:$SILLY_KEY_PASSWORD_FILE" --out "$signed_apk" "$build_work/aligned.apk"
-cp "$signed_apk" ../dist/silly-bookshop-0.9.2-test.1.apk
-"$SILLY_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-0.9.2-test.1.apk
+cp "$signed_apk" ../dist/silly-bookshop-0.9.3-test.1.apk
+"$SILLY_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-0.9.3-test.1.apk

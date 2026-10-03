@@ -1,5 +1,12 @@
 # 변경 기록
 
+## 0.9.3-test.1
+
+- 대화 도구 테두리를 28px 높이로 축소하고 내부 구분선도 짧게 조정.
+- 테마·글꼴·크기 등 선택창을 책방 테마를 따르는 전용 팝업으로 교체. 테마 색상칩, 글꼴 미리보기, 선택 표시와 키보드 이동 지원.
+- Android의 도구 메뉴·연결·확인창에 책방 테마와 둥근 모서리 적용. OS가 소유한 인증/갤러리 화면은 그대로 유지.
+- 온라인, 웹 오프라인, Android 오프라인 선택창에 같은 디자인 적용. APK versionCode 15.
+
 ## 0.9.2-test.1
 
 - Aligned reading settings in one two-column grid with consistent gaps and bottom-aligned bold control.

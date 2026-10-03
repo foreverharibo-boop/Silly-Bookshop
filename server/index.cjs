@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs'),reading=require('./reading.cjs'),shelf=require('./shelf.cjs'),search=require('./search.cjs');
-const BASE='/api/plugins/silly-bookshop',VERSION='0.9.2-test.1';
+const BASE='/api/plugins/silly-bookshop',VERSION='0.9.3-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -41,7 +41,7 @@ async function init(router){
         next();
     }));
     router.get('/',(req,res)=>req.originalUrl.split('?')[0].endsWith('/')?res.sendFile(path.join(__dirname,'public/index.html')):res.redirect(BASE+'/'));
-    for(const name of ['app.js','rich.js','style.css','icon.svg','icon-192.png','icon-512.png','vendor/purify.min.js','vendor/showdown.min.js','web-vault.js','web-vault.css','vault.html','sw.js','web-reader.js','web-reader.css','manifest.json'])router.get('/'+name,(req,res)=>res.sendFile(path.join(__dirname,'public',name)));
+    for(const name of ['app.js','pickers.js','rich.js','style.css','icon.svg','icon-192.png','icon-512.png','vendor/purify.min.js','vendor/showdown.min.js','web-vault.js','web-vault.css','vault.html','sw.js','web-reader.js','web-reader.css','manifest.json'])router.get('/'+name,(req,res)=>res.sendFile(path.join(__dirname,'public',name)));
     for(const family of ['NanumGothic','NanumMyeongjo','GowunBatang','Pretendard','IBMPlexSansKR'])for(const weight of ['Regular','Bold']){
         const name=family+'-'+weight+'.woff2';
         router.get('/fonts/'+name,(req,res)=>{res.set('Cache-Control','private, max-age=86400');res.sendFile(path.join(__dirname,'public/fonts',name));});
@@ -51,7 +51,7 @@ async function init(router){
     router.get('/status',wrap(async(req,res)=>{
         statusRate(req.socket.remoteAddress);
         const conf=await c.authConfig(req.user.directories.root);
-        res.json({configured:!!conf,authenticated:!!authenticated(req,conf),version:VERSION,protocol:2,minAppVersion:'0.9.2'});
+        res.json({configured:!!conf,authenticated:!!authenticated(req,conf),version:VERSION,protocol:2,minAppVersion:'0.9.3'});
     }));
     router.post('/login',wrap(async(req,res)=>{
         const root=req.user.directories.root,now=Date.now();
