@@ -1,5 +1,5 @@
 "use strict";
-const VERSION='0.9.5-test.1',PREFIX='silly-bookshop-shell-',CACHE=PREFIX+VERSION,BASE=new URL('./',self.location).pathname;
+const VERSION='0.9.5-test.2',PREFIX='silly-bookshop-shell-',CACHE=PREFIX+VERSION,BASE=new URL('./',self.location).pathname;
 const ASSETS=['pickers.js','vault.html','web-vault.js','web-vault.css','web-reader.html','web-reader.js','web-reader.css','rich.js','style.css','icon.svg','icon-192.png','icon-512.png','manifest.json',
 ...['NanumGothic','NanumMyeongjo','GowunBatang'].flatMap(f=>['Regular','Bold'].map(w=>'fonts/'+f+'-'+w+'.woff2')),'fonts/RIDIBatang-Regular.woff2','fonts/Pretendard-Regular.woff2','fonts/Pretendard-Bold.woff2','fonts/IBMPlexSansKR-Regular.woff2','fonts/IBMPlexSansKR-Bold.woff2','fonts/GowunDodum-Regular.woff2','fonts/Hahmlet-Variable.woff2'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{const cache=await caches.open(CACHE);try{for(const asset of ASSETS){const url=BASE+asset,r=await fetch(url,{cache:'reload',credentials:'same-origin'});const type=r.headers.get('content-type')||'';if(!r.ok||r.redirected||new URL(r.url).pathname!==url||(asset.endsWith('.js')&&!/javascript/.test(type))||(asset.endsWith('.html')&&!/text\/html/.test(type)))throw Error('Offline files unavailable');await cache.put(url,r);}await self.skipWaiting();}catch(e){await caches.delete(CACHE);throw e;}})()));

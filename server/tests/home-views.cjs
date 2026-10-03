@@ -31,10 +31,12 @@ function png(red=40){
  for(const [view,columns] of [['cards',2],['covers',3]]){
   await setting('library-view',view);
   assert.equal(await page.locator('.shelf-row').first().locator('.character').count(),columns);
-  for(const width of [320,390,1280]){
+  for(const width of [320,390,768,1280,1920]){
    await page.setViewportSize({width,height:844});
-   await page.locator('.character').nth(1).click();
+   await page.evaluate(async()=>{for(let i=0;i<3;i++)await new Promise(requestAnimationFrame);});
+   if(await page.locator('.character').nth(1).getAttribute('aria-expanded')!=='true')await page.locator('.character').nth(1).click();
    const buttons=await page.locator('.shelf-row').first().locator('.character').evaluateAll(items=>items.map(x=>x.getBoundingClientRect().toJSON()));
+   if(width>640){assert.ok(buttons[0].width<=(view==='covers'?110:140)+1);if(width>=1280)assert.equal(buttons.length,5);}else assert.equal(buttons.length,columns);
    const threads=await page.locator('.threads').boundingBox();assert.ok(threads);assert.ok(threads.y>=Math.max(...buttons.map(b=>b.bottom))-1);assert.ok(threads.width>buttons[0].width*1.8);
    assert.ok(await page.locator('#sidebar').evaluate(el=>el.scrollWidth<=el.clientWidth));assert.equal(await page.locator('.threads .thread').count(),3);
    await page.locator('.character').nth(1).click();assert.equal(await page.locator('.threads').count(),0);
@@ -47,7 +49,13 @@ function png(red=40){
  }
  await setting('library-view','list');assert.equal(await page.locator('.shelf-row').count(),0);assert.equal(await page.locator('.character-group').count(),5);
  await page.locator('#recent-toggle').click();assert.equal(await page.locator('#recent').isVisible(),true);await page.locator('.recent-card').first().click();await page.locator('.message').waitFor();
- await page.locator('#home').click();await page.locator('.character').first().waitFor();await setting('library-view','cards');await page.locator('.character').first().click();await page.locator('.thread').first().click();await page.locator('.message').waitFor();
+ await page.evaluate(()=>window.dispatchEvent(new Event('bookshop-home')));await page.locator('.character').first().waitFor();await setting('library-view','cards');await page.locator('.character').first().click();await page.locator('.thread').first().click();await page.locator('.message').waitFor();
+
+ for(const ua of ['Mozilla/5.0 (Linux; Android 14) Mobile','SillyBookshop/0.9.5','Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)']){
+  const mobile=await browser.newPage({viewport:{width:1000,height:844},userAgent:ua});await mobile.goto('http://127.0.0.1:'+server.address().port+'/api/plugins/silly-bookshop/');await mobile.locator('#password').fill('test-password');await mobile.locator('#login-form .primary').click();await mobile.locator('.character').first().waitFor();
+  for(const [view,cols]of [['cards',2],['covers',3]]){await mobile.evaluate(()=>window.dispatchEvent(new Event('bookshop-open-tools')));await mobile.locator('#library-view').selectOption(view);await mobile.locator('[data-close=tools-dialog]').click();assert.equal(await mobile.locator('.shelf-row').first().locator('.character').count(),cols);assert.equal(await mobile.locator('#characters').getAttribute('data-dense'),'false');}
+  await mobile.close();
+ }
  assert.equal(await page.locator('#transcript').evaluate(el=>el.scrollTop),0);assert.equal(await page.locator('#characters img[onerror]').count(),0);assert.deepEqual(errors,[]);
  console.log('PASS: existing list preserved, cards/covers use real avatars, full-width expansion below selected row at 320/390/1280px, long/untrusted names and search, persisted view/collapse, recent 0/3/6/10 and navigation, first-message entry.');
  }finally{if(browser)await browser.close();if(server)await new Promise(r=>server.close(r));await fs.rm(root,{recursive:true,force:true});}

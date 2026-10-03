@@ -10,7 +10,7 @@ let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='0.9.5-test.1';
+const UI_VERSION='0.9.5-test.2';
 let rendererLoading=null;
 function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
 function ensureRenderer(){
@@ -228,6 +228,17 @@ async function save(keepalive=false){
 }
 function fold(value){const p=position(),mobile=compactNavigation();if(!active)value=false;if(mobile&&active&&!value)save();$('library').classList.toggle('collapsed',value);$('fold').setAttribute('aria-expanded',String(!value));$('fold').setAttribute('aria-label',value?'목록 펼치기':'목록 접기');prefs.set('collapsed',String(value));if(mobile&&active)prefs.set('view',value?'chat':'home');syncScreen();if(active&&p&&(!mobile||value))restore(p);}
 $('fold').onclick=()=>fold(!$('library').classList.contains('collapsed'));
+function denseShelf(){return !nativeApp&&!appleDevice&&!/Android|Mobile/i.test(navigator.userAgent)&&matchMedia('(min-width:641px)').matches;}
+function shelfColumns(view){
+    if(!denseShelf())return view==='covers'?3:2;
+    const size=view==='covers'?110:140,gap=view==='covers'?10:12;
+    return Math.max(1,Math.floor(($('characters').clientWidth+gap)/(size+gap)));
+}
+const shelfResize=new ResizeObserver(()=>{
+    const host=$('characters'),view=$('library-view').value;
+    if(unlocked&&host.clientWidth&&view!=='list'&&(Number(host.dataset.columns)!==shelfColumns(view)||host.dataset.dense!==String(denseShelf())))renderLists();
+});
+shelfResize.observe($('characters'));
 function renderLists(){
     $('characters').querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
     const query=$('search').value.trim().toLowerCase(),groups=new Map();
@@ -237,7 +248,9 @@ function renderLists(){
         const list=person.character.toLowerCase().includes(query)?own:own.filter(c=>(chatTitle(c)+' '+c.title).toLowerCase().includes(query));
         if(!query||person.character.toLowerCase().includes(query)||list.length)groups.set(person.key,{person,list});
     }
-    const view=$('library-view').value,columns=view==='covers'?3:2,entries=[...groups];
+    const view=$('library-view').value,columns=shelfColumns(view),entries=[...groups];
+    $('characters').dataset.columns=String(columns);$('characters').dataset.dense=String(denseShelf());
+    $('characters').style.setProperty('--shelf-columns',String(columns));
     $('characters').dataset.view=view;
     $('count').textContent=String(groups.size);$('characters').replaceChildren();let n=0,row,openThreads;
     for(const [key,{person,list}]of groups){
