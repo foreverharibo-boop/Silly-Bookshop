@@ -1,6 +1,14 @@
 # 검증 기록 / 공개 전 남은 실기 테스트
 
-버전: **서버·웹·APK 0.7.0-test.1 / 브라우저 확장 없음**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
+버전: **서버·웹·APK 0.7.1-test.1 / 브라우저 확장 없음**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
+
+## 0.7.1 변경 검증
+
+- 실제 Chromium 134 / 320·390·1280px: 기존 목록 유지, 카드 2열·표지 3열, 프사 이미지 디코딩, 선택한 줄 아래 전체 폭 대화 목록, 긴 이름·HTML 같은 이름의 텍스트 처리, 검색, 보기 선택 재시작 유지.
+- 이어 읽기 접기·펼치기 및 재시작 유지, 0/3/6/10개 표시, 최근 대화 진입과 처음 여는 대화의 첫 위치 확인.
+- 기존 목록 갱신 검사 통과: 현재 캐릭터만 표시, 프사 갱신, 캐릭터·대화 추가/삭제 반영. 기존 브라우저 통합 검사와 Node 6개 검사 파일 통과.
+- APK versionCode 10 / 0.7.1-test.1 빌드, v2/v3 서명 및 기존 인증서 일치 확인. 오프라인 삭제 버튼은 baseline 정렬 해제 및 같은 높이로 수정. 실제 Android 폰 표시 확인은 남아 있습니다.
+- 재현: `NODE_PATH=<express·playwright 설치 경로>/node_modules PLAYWRIGHT_BROWSERS_PATH=<브라우저 경로> node server/tests/home-views.cjs`
 
 ## 0.7.0 변경 검증
 
@@ -155,7 +163,7 @@ java -cp /tmp/silly-url-test UrlPolicyTest
 
 - 패키지: `app.silly.bookshop`
 - 표시 이름: 실리 책방
-- versionCode: 9 / versionName: 0.7.0-test.1
+- versionCode: 10 / versionName: 0.7.1-test.1
 - Android API 26 이상 / target API 35
 - 앱이 요청하는 권한: INTERNET
 - 서명 인증서 SHA-256: `d7ca695de38f3708bee090e88d8a4306bb05f332575b49cbbe1ea0db395ddfae`

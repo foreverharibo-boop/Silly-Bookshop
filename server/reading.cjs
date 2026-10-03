@@ -22,7 +22,7 @@ async function visit(dirs,id){
 async function recent(dirs,chats){
  const saved=await c.readJson(path.join(await c.stateDir(dirs.root),'reading.json'),{});
  const visits=await c.readJson(path.join(await c.stateDir(dirs.root),'visits.json'),{}),time=id=>Math.max(visits[id]||0,saved[id]?.updated||0);
- return chats.filter(x=>time(x.id)).sort((a,b)=>time(b.id)-time(a.id)).slice(0,6).map(x=>({...x,position:saved[x.id]||{index:0,fraction:0}}));
+ return chats.filter(x=>time(x.id)).sort((a,b)=>time(b.id)-time(a.id)).slice(0,10).map(x=>({...x,position:saved[x.id]||{index:0,fraction:0}}));
 }
 async function snapshot(dirs,id,cancelled=()=>false){
  const began=Date.now();
