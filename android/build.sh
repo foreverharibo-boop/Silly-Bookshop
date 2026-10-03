@@ -47,5 +47,5 @@ PY
 "$SILLY_BUILD_TOOLS/zipalign" -f 4 "$build_work/unsigned.apk" "$build_work/aligned.apk"
 signed_apk="$build_work/signed.apk"
 "$SILLY_BUILD_TOOLS/apksigner" sign --ks "$SILLY_KEYSTORE" --ks-pass "file:$SILLY_KEY_PASSWORD_FILE" --out "$signed_apk" "$build_work/aligned.apk"
-cp "$signed_apk" ../dist/silly-bookshop-1.0.0.apk
-"$SILLY_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-1.0.0.apk
+cp "$signed_apk" ../dist/silly-bookshop-1.0.1.apk
+"$SILLY_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-1.0.1.apk
