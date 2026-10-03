@@ -9,11 +9,17 @@ const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     res.status(e.status||(e.code==='ENOENT'?404:500)).json({error:e.status?e.message:e.code==='ENOENT'?'파일을 찾을 수 없습니다.':'읽기에 실패했습니다. 실리 서버 로그를 확인해 주세요.'});
     if(!e.status&&e.code!=='ENOENT')console.error('[silly-bookshop]',e.code||'internal-error');
 });
+function cookieName(req){
+    // Cookies share a jar across ports. A Secure HTTPS cookie must never shadow
+    // the HTTP login. The private HTTPS bridge preserves its own Host/port.
+    // Ignore the legacy shared cookie; no website-data or offline-vault wipe.
+    return 'silly_bookshop_'+crypto.createHash('sha256').update(security.origin(req)).digest('hex').slice(0,32);
+}
 function cookieKey(req){
-    const match=String(req.headers.cookie||'').match(/(?:^|;\s*)silly_bookshop=([a-f0-9]{64})(?:;|$)/);
+    const match=String(req.headers.cookie||'').match(new RegExp('(?:^|;\\s*)'+cookieName(req)+'=([a-f0-9]{64})(?:;|$)'));
     return match?crypto.createHash('sha256').update(match[1]).digest('hex'):'';
 }
-function setCookie(req,res,token,maxAge){res.cookie('silly_bookshop',token,{httpOnly:true,sameSite:'strict',secure:req.secure,path:BASE,maxAge});}
+function setCookie(req,res,token,maxAge){res.cookie(cookieName(req),token,{httpOnly:true,sameSite:'strict',secure:req.secure,path:BASE,maxAge});}
 async function init(router){
     const sessions=new Map();
     const loginIp=security.bucket(10,15*60000),loginUser=security.bucket(30,15*60000);
