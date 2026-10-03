@@ -1,5 +1,12 @@
 # 변경 기록
 
+## 0.9.2-test.1
+
+- Aligned reading settings in one two-column grid with consistent gaps and bottom-aligned bold control.
+- Reduced chat action bar height, text size and padding; retained wrapping on narrow screens.
+- Added bundled Pretendard, IBM Plex Sans KR, Gowun Dodum and Hahmlet to online, native offline and web offline readers, including rich HTML output. Added font categories and upstream OFL notices.
+- APK versionCode 14; server, renderer and offline shell cache version 0.9.2-test.1.
+
 ## 0.9.1-test.1 — 앱 화면 전환과 프사 표시 옵션
 
 - Android·iOS 설치형 웹앱 삼선 제거, Windows 브라우저 목록 접기 유지. 홈에서 빈 대화 화면/비활성 도구 대신 책장 표시.

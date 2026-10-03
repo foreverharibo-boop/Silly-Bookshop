@@ -12,3 +12,14 @@ Google Fonts source commit: 9710da1eacb3be272583c3224dcb70f9da6eadbb
 Unsubsetted WOFF2 conversions, no glyph or name changes. Each family is distributed under the accompanying SIL Open Font License 1.1. Served only from the configured Silly server; no font CDN requests.
 
 - RIDIBatang-Regular.woff2: official RIDI distribution; see RIDIBatang-SOURCE.md for source/hash and RIDIBatang-OFL.txt for copyright and license. Regular only; bold uses browser synthesis.
+
+## Added in 0.9.2
+
+- Pretendard-Regular.woff2: https://raw.githubusercontent.com/orioncactus/pretendard/7aeb0698819be2b4097dae8ec8fe6a795e5cf3ae/packages/pretendard/dist/web/static/woff2/Pretendard-Regular.woff2 (original SHA-256 fad853f7f47c6c8b103171e7193fa095708cdcd70850a71d93aa5379e8a61d63)
+- Pretendard-Bold.woff2: https://raw.githubusercontent.com/orioncactus/pretendard/7aeb0698819be2b4097dae8ec8fe6a795e5cf3ae/packages/pretendard/dist/web/static/woff2/Pretendard-Bold.woff2 (original SHA-256 4609c3356e536fafe38f4add0daeceb3d8595d3057bce13c428c33ddbd43d362)
+- IBMPlexSansKR-Regular.woff2: https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/ibmplexsanskr/IBMPlexSansKR-Regular.ttf (original SHA-256 53750379270312368cf7641901f43a98dd892e3d9d5798cf25cdc245c85c71c0)
+- IBMPlexSansKR-Bold.woff2: https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/ibmplexsanskr/IBMPlexSansKR-Bold.ttf (original SHA-256 9d82a8be5330f6d7b53121262867b402baca672eb69b852928f06d185d357f7d)
+- GowunDodum-Regular.woff2: https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/gowundodum/GowunDodum-Regular.ttf (original SHA-256 a6e457933227483a11758fd0947bc74422a106d46f0bf057fdaa5af94a30067d)
+- Hahmlet-Variable.woff2: https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/hahmlet/Hahmlet%5Bwght%5D.ttf (original SHA-256 892bffe530255770a7435226154a02f519055ff6bedf64254f37f21d15a59279)
+
+Original WOFF2 files or unsubsetted WOFF2 format conversions only; no outlines, glyph sets, names or variation axes changed. Hahmlet retains its 100–900 weight axis. Pretendard and IBM Plex Sans KR include real 400/700 faces. Gowun Dodum is regular-only and bold uses browser synthesis. Each font ships with its copyright/OFL text. All are bundled for Android and the web offline shell; no third-party font requests.

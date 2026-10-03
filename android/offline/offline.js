@@ -2,7 +2,7 @@
 (async()=>{
  const $=id=>document.getElementById(id),root=document.documentElement,host=$('offline-transcript');
  const data=await (await fetch('/snapshot',{cache:'no-store'})).json(),key='offline-position:'+data.vaultId;
- let first=0,restoring=false,timer;const families={system:'system-ui,sans-serif',gothic:'"Bookshop Gothic",sans-serif',myeongjo:'"Bookshop Myeongjo",serif',batang:'"Bookshop Batang",serif',ridi:'"Bookshop RIDI",serif'};
+ let first=0,restoring=false,timer;const families={system:'system-ui,sans-serif',gothic:'"Bookshop Gothic",sans-serif',myeongjo:'"Bookshop Myeongjo",serif',batang:'"Bookshop Batang",serif',ridi:'"Bookshop RIDI",serif',pretendard:'"Bookshop Pretendard",sans-serif',plex:'"Bookshop Plex",sans-serif',dodum:'"Bookshop Dodum",sans-serif',hahmlet:'"Bookshop Hahmlet",serif'};
  const node=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'';if(text!==undefined)e.textContent=text;return e;};
  $('offline-title').textContent=data.meta.character+' · '+(data.meta.alias||data.meta.title);$('offline-date').textContent=new Date(data.created).toLocaleString('ko-KR')+' 보관본 · 서버에 연결하지 않아요';
  const prefs=data.preferences||{};let local={};try{local=JSON.parse(localStorage.getItem('offline-style')||'{}');}catch{}
