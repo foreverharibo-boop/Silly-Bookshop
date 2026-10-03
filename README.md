@@ -1,11 +1,11 @@
 # 실리 책방 · Silly Bookshop
 
 > **정식 1.0.1 · 아이폰 오프라인 연결 준비**
-> Termux 서버용 개인 HTTPS 입구와 앱 안의 설치 안내를 추가했습니다. 기존 APK는 1.0.0 그대로 사용합니다. 아이폰 8에서 사용자 사용 성공 보고를 받았습니다. 기기별 세부 검증 범위는 TESTING.md에 기록합니다.
+> Termux 서버용 개인 HTTPS 입구와 앱 안의 설치 안내를 추가했습니다. Android 앱도 정식 1.0.1로 업데이트해 주세요. 아이폰 8에서 사용자 사용 성공 보고를 받았습니다. 기기별 세부 검증 범위는 TESTING.md에 기록합니다.
 > 👉 [처음부터 따라 하는 아이폰 오프라인 준비](scripts/IPHONE-OFFLINE.md)
 
 
-**서버·웹 1.0.1 / Android APK 1.0.0 · PC·iPhone·iPad 지원**
+**서버·웹 1.0.1 / Android APK 1.0.1 · PC·iPhone·iPad 지원**
 
 실리에 저장된 채팅을 말풍선과 책장으로 편하게 읽는 개인용 뷰어입니다. 사용자가 **자기 실리 서버**에 서버 플러그인을 설치하고 연결합니다. 중앙 채팅 서버나 제작자 계정은 필요하지 않습니다.
 
@@ -77,7 +77,7 @@ node setup.cjs
 
 ## Android 앱 설치와 접속
 
-1. [Releases](https://github.com/foreverharibo-boop/Silly-Bookshop/releases)에서 **`silly-bookshop-1.0.0.apk`**를 받아 설치합니다. Android가 요청하면 다운로드한 브라우저/파일 앱의 설치 권한을 허용합니다.
+1. [Releases](https://github.com/foreverharibo-boop/Silly-Bookshop/releases)에서 **`silly-bookshop-1.0.1.apk`**를 받아 설치합니다. Android가 요청하면 다운로드한 브라우저/파일 앱의 설치 권한을 허용합니다.
 2. 앱의 **서버 주소**에 실리 기본 주소를 입력합니다. `/api/plugins/silly-bookshop/` 경로는 자동으로 붙습니다.
 3. 실리 자체 로그인/기본 인증을 설정했다면 먼저 로그인합니다. 이어 **홈화면**에서 책방 비밀번호를 입력합니다.
 
@@ -114,7 +114,7 @@ cd ~/SillyTavern &&
 bash start.sh
 ```
 
-Android는 **1.0.0 APK를 기존 앱 위에 덮어 설치**합니다. 기존 `app.silly.bookshop` 앱과 같은 서명이며 앱 삭제나 비밀번호 초기화는 필요 없습니다. 브라우저/웹앱은 서버 업데이트 후 새로고침합니다. 버전은 **도구 → 버전과 연결**에서 확인합니다.
+Android는 **1.0.1 APK를 기존 앱 위에 덮어 설치**합니다. 기존 `app.silly.bookshop` 앱과 같은 서명이며 앱 삭제나 비밀번호 초기화는 필요 없습니다. 브라우저/웹앱은 서버 업데이트 후 새로고침합니다. 버전은 **도구 → 버전과 연결**에서 확인합니다.
 
 `git pull`에서 로컬 변경 오류가 나면 업데이트가 완료된 것이 아닙니다. 변경 파일을 백업하고 확인한 뒤 갱신하세요. 무조건적인 `git reset --hard`나 앱 삭제로 해결하지 마세요.
 

@@ -47,6 +47,7 @@ public final class MainActivity extends Activity {
     private boolean loginRedirect = false;
     private android.webkit.ValueCallback<android.net.Uri[]> imageChooser;private String chooserServer="";
     private boolean exporting=false;private int exportGeneration=0;private String exportServer="";
+    private String appVersion(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "unknown";}}
     private int dp(int n) {return (int)(getResources().getDisplayMetrics().density*n+.5f);}
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -68,7 +69,7 @@ public final class MainActivity extends Activity {
         root.addView(toolbar);applyTheme(prefs.getString("toolbar-theme","light"));
         WebView.setWebContentsDebuggingEnabled(false);
         web=new WebView(this);root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
-        WebSettings s=web.getSettings();s.setUserAgentString(s.getUserAgentString()+" SillyBookshop/1.0.1");s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        WebSettings s=web.getSettings();s.setUserAgentString(s.getUserAgentString()+" SillyBookshop/"+appVersion());s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
         if(Build.VERSION.SDK_INT>=26)s.setSafeBrowsingEnabled(true);
         s.setSavePassword(false);
         CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
@@ -82,7 +83,7 @@ public final class MainActivity extends Activity {
             }
         });
         web.setWebViewClient(new WebViewClient(){
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,android.webkit.WebResourceError error){if(request.isForMainFrame())new BookshopDialog(MainActivity.this).setTitle("책방 연결 확인").setMessage("실리 서버에 연결하지 못했어요.\n실리 실행 상태, 서버 주소·포트, 테일스케일 연결을 확인한 뒤 화면 새로고침을 눌러 주세요.\n앱 버전 1.0.1").setPositiveButton("확인",null).show();}
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,android.webkit.WebResourceError error){if(request.isForMainFrame())new BookshopDialog(MainActivity.this).setTitle("책방 연결 확인").setMessage("실리 서버에 연결하지 못했어요.\n실리 실행 상태, 서버 주소·포트, 테일스케일 연결을 확인한 뒤 화면 새로고침을 눌러 주세요.\n앱 버전 "+appVersion()).setPositiveButton("확인",null).show();}
 
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest req){return !(!req.isForMainFrame() && isReaderFrame(req.getUrl().toString())) && !allowed(req.getUrl().toString());}
             @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest req){
