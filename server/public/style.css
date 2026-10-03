@@ -109,3 +109,13 @@ html[data-navigation=pages] #fold,#library[data-screen=home] #fold{display:none}
 
 /* Keep explicit home navigation beside Tools, including narrow browser windows. */
 .top{flex-wrap:wrap}.top-actions{margin-left:auto}.top-actions button{white-space:nowrap}
+
+/* Web update controls use the current theme, including the offline entry screen. */
+html[data-native=true] .web-screen-update{display:none!important}
+.top-actions .web-screen-update{border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:12px}
+#screen-update-dialog{width:min(440px,calc(100vw - 28px));text-align:left}
+#screen-update-dialog h2{font-size:18px;margin:0 0 12px}
+#screen-update-dialog p{white-space:pre-line;overflow-wrap:anywhere}
+#screen-update-dialog .screen-update-actions{display:flex;justify-content:flex-end;gap:10px}
+#screen-update-dialog button{border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-height:36px}
+@media(max-width:440px){.top-actions{gap:4px}.top-actions #tools,.top-actions #web-home,.top-actions .web-screen-update{padding:0 9px}}

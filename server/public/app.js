@@ -10,11 +10,11 @@ let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='1.0.2';
+const UI_VERSION='1.0.3',RENDERER_VERSION='1.0.2';
 function nativeAppVersion(){return navigator.userAgent.match(/SillyBookshop\/([^\s]+)/)?.[1];}
 function needsAppUpdate(version){if(!version)return false;const m=version.match(/^(\d+)\.(\d+)\.(\d+)(.*)$/);if(!m)return true;const n=Number(m[1])*1000000+Number(m[2])*1000+Number(m[3]);return n<1000002||(n===1000002&&Boolean(m[4]));}
 let rendererLoading=null;
-function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
+function rendererReady(){return window.BookshopRich?.version===RENDERER_VERSION;}
 function ensureRenderer(){
     if(rendererReady())return Promise.resolve();
     if(rendererLoading)return rendererLoading;
@@ -51,15 +51,12 @@ const appleDevice=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platf
 const pageNavigation=()=>nativeApp||(appleDevice&&(navigator.standalone===true||installedMode.matches));
 const compactNavigation=()=>pageNavigation()||matchMedia('(max-width:640px)').matches;
 document.documentElement.dataset.native=String(nativeApp);
-// Update an already installed shell before old cached CSS/renderer linger after a server patch.
-if(!nativeApp&&window.isSecureContext&&'serviceWorker' in navigator){
- navigator.serviceWorker.getRegistration(base+'/').then(reg=>{
-  if(!reg?.active)return;
-  let reloading=false;
-  navigator.serviceWorker.addEventListener('controllerchange',async()=>{if(reloading)return;reloading=true;await Promise.race([save(),new Promise(resolve=>setTimeout(resolve,1000))]);location.reload();});
-  reg.update().catch(()=>{});
- }).catch(()=>{});
-}
+// Wait for position writes before a user-requested screen update.
+window.BookshopScreenUpdate?.beforeReload(async()=>{
+ await save();
+ if(scrollDirty||pendingPositions.size)throw Error('읽던 위치를 저장하지 못했어요. 서버 연결 후 다시 눌러 주세요.');
+ if($('tools-dialog').open)history.replaceState(null,'',location.pathname+location.search+'#tools');
+});
 
 function syncScreen(){document.documentElement.dataset.navigation=pageNavigation()?'pages':'sidebar';$('library').dataset.screen=active&&prefs.get('view','home')==='chat'?'chat':'home';}
 installedMode.addEventListener?.('change',syncScreen);syncScreen();
@@ -470,7 +467,8 @@ async function runSearch(more){
  }catch(e){if(ticket===searchGeneration)$('chat-search-status').textContent=e.message;}finally{if(ticket===searchGeneration)$('chat-search-submit').disabled=$('chat-search-more').disabled=false;}
 }
 $('chat-search-form').onsubmit=e=>{e.preventDefault();runSearch(false);};$('chat-search-more').onclick=()=>runSearch(true);$('chat-search-dialog').addEventListener('close',()=>{searchGeneration++;$('chat-search-submit').disabled=$('chat-search-more').disabled=false;});
-window.BookshopOfflineStatus={current(){return unlocked&&active&&revision&&accountScope?{id:active,scope:accountScope,revision}:null;},update(value){if(!unlocked||value.id!==active||value.scope!==accountScope)return;const e=$('offline-state');if(!value.exists){e.hidden=true;e.textContent='';return;}e.hidden=false;e.textContent='오프라인 보관됨 · '+new Date(value.created).toLocaleString('ko-KR')+(value.revision===revision?'':' · 보관본 업데이트 필요');e.title='상단 도구 → 현재 대화 오프라인 보관에서 저장하거나 업데이트해요.';}};
+// Keep the Android bridge compatible, without an unsolicited saved-copy banner.
+window.BookshopOfflineStatus={current(){return unlocked&&active&&revision&&accountScope?{id:active,scope:accountScope,revision}:null;},update(){}};
 function resetPrivateTools(){accountScope='';searchGeneration++;coverRequest++;pendingCover=undefined;editingPerson='';aliasChat='';searchChat='';$('chat-search-results').replaceChildren();$('chat-search-query').value='';$('alias-value').value='';$('alias-original').textContent='';$('cover-preview').replaceChildren();$('person-settings-title').textContent='캐릭터 책장';$('offline-state').hidden=true;}
 async function diagnose(){
  const button=$('diagnose');button.disabled=true;const appVersion=nativeAppVersion();$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n연결 확인 중…';

@@ -5,14 +5,14 @@ if(navigator.userAgent.includes('SillyBookshop/'))return;
 const BASE='/api/plugins/silly-bookshop/',DB='silly-bookshop-web-vault-v1',ITERATIONS=600000,MAX=110*1024*1024;
 const enc=new TextEncoder(),dec=new TextDecoder();let key=null,config=null,records=[],ticket=0,selected=null,dbPromise,readyPromise,pendingSave=null,importData=null,hiddenTimer,hiddenSince=0,writing=Promise.resolve();
 const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
-const dialog=node('dialog',undefined,'web-vault'),head=node('div',undefined,'vault-head'),title=node('h2','오프라인 보관함'),close=node('button','닫기'),home=node('a','온라인 책방'),lockButton=node('button','잠그기');home.href=BASE;head.append(title,home,lockButton,close);
+const dialog=node('dialog',undefined,'web-vault'),head=node('div',undefined,'vault-head'),title=node('h2','오프라인 보관함'),close=node('button','닫기'),home=node('a','온라인 책방'),lockButton=node('button','잠그기');home.href=BASE;const updateButton=node('button','화면 새로고침','web-screen-update');updateButton.type='button';head.append(title,home,updateButton,lockButton,close);
 const notice=node('p',(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&!navigator.standalone?'아이폰·아이패드는 홈 화면에 추가한 책방 아이콘으로 들어가서 저장해 주세요. Safari 탭에 저장한 대화는 홈 화면 앱과 다를 수 있어요.':'이 기기에 저장한 대화를 서버 연결 없이 읽어요.','help'),message=node('p','','help');message.setAttribute('role','status');message.id='vault-message';
 const form=node('form'),password=node('input');password.type='password';password.id='vault-password';password.autocomplete='current-password';password.maxLength=256;password.required=true;const label=node('label','보관함 전용 비밀번호');label.htmlFor=password.id;
 const confirmation=node('input');confirmation.type='password';confirmation.id='vault-confirm';confirmation.autocomplete='new-password';confirmation.maxLength=256;const confirmLabel=node('label','비밀번호 확인');confirmLabel.htmlFor=confirmation.id;
 const submit=node('button','보관함 열기','primary');submit.type='submit';submit.id='vault-unlock';
 const warning=node('p','책방 로그인과 별개예요. 비밀번호는 서버로 보내지 않으며, 잊으면 보관본을 복구할 수 없어요.','help');form.append(label,password,confirmLabel,confirmation,submit,warning);
 const actions=node('div',undefined,'vault-actions'),backup=node('button','암호화 백업 받기'),restoreLabel=node('label','백업 파일 복원','vault-file'),restore=node('input');restore.type='file';restore.accept='.json,application/json';restore.id='vault-import';restoreLabel.append(restore);const wipe=node('button','보관함 초기화');actions.append(backup,restoreLabel,wipe);
-const list=node('div');list.id='vault-list';const reader=node('div');reader.id='vault-reader';dialog.append(head,notice,form,message,actions,list,reader);document.body.append(dialog);
+const list=node('div');list.id='vault-list';const reader=node('div');reader.id='vault-reader';const keepNotice=node('p','웹앱을 삭제하거나 사이트 데이터를 지우면 보관본이 사라질 수 있어요. 업데이트는 화면 새로고침으로 진행하고, 중요한 대화는 암호화 백업을 받아 두세요.','help');dialog.append(head,notice,keepNotice,form,message,actions,list,reader);document.body.append(dialog);
 const channel=typeof BroadcastChannel==='function'?new BroadcastChannel(DB):null;if(channel)channel.onmessage=()=>{lock();config=null;importData=null;message.textContent='다른 창에서 보관함이 변경되었어요. 다시 열어 주세요.';};
 const isPage=document.body.dataset.vaultPage==='true';close.hidden=isPage;
 function database(){return dbPromise||(dbPromise=new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore('items');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(Error('기기 저장 공간을 열 수 없어요. 일반 브라우저 모드와 저장 공간을 확인해 주세요.'));}));}
@@ -54,6 +54,12 @@ form.onsubmit=async event=>{event.preventDefault();submit.disabled=true;const t=
  }else{checkConfig(config);const k=await derive(pass,config.salt);if(await unseal(k,config.check,'check')!=='silly-bookshop-v1')throw Error();if(t!==ticket)return;key=k;}
  confirmation.value='';await renderList();message.textContent='저장한 대화를 골라 주세요. 보관본은 자동으로 갱신되지 않아요.';await savePending();
  }catch(e){if(t===ticket){key=null;records=[];selected=null;reader.replaceChildren();list.replaceChildren();message.textContent=e.message&&e.message.includes('주세요')?e.message:'비밀번호가 맞지 않거나 보관함 파일이 손상되었어요.';}}finally{submit.disabled=false;checkForm();}};
+window.BookshopScreenUpdate?.beforeReload(async()=>{
+ if(pendingSave||importData)throw Error('보관·복원 작업을 먼저 마친 뒤 다시 눌러 주세요.');
+ const state=reader.querySelector('iframe')?.contentWindow?.BookshopOfflineState;
+ if(selected&&key&&state)await updateReader(selected.vaultId,state.flush());
+ await writing;
+});
 function showReader(data){selected=data;reader.replaceChildren();dialog.dataset.reading='true';const frame=node('iframe');frame.title='저장한 대화 읽기';frame.src=BASE+'web-reader.html';reader.append(frame);list.hidden=actions.hidden=true;message.textContent='';}
 function readerState(value,total){
  if(!value||typeof value.alias!=='string'||value.alias.length>120||!Array.isArray(value.bookmarks)||value.bookmarks.length>100)throw Error('보관본 설정을 확인해 주세요.');
