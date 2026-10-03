@@ -1,1 +1,1 @@
-{"name":"silly-bookshop-server","version":"0.9.5-test.2","private":true,"main":"index.cjs","engines":{"node":">=18"},"scripts":{"test":"node --test tests/*.test.cjs"}}
+{"name":"silly-bookshop-server","version":"0.9.5-test.3","private":true,"main":"index.cjs","engines":{"node":">=18"},"scripts":{"test":"node --test tests/*.test.cjs"}}

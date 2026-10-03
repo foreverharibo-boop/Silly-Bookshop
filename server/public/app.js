@@ -10,7 +10,7 @@ let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='0.9.5-test.2';
+const UI_VERSION='0.9.5-test.3';
 let rendererLoading=null;
 function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
 function ensureRenderer(){
@@ -232,7 +232,7 @@ function denseShelf(){return !nativeApp&&!appleDevice&&!/Android|Mobile/i.test(n
 function shelfColumns(view){
     if(!denseShelf())return view==='covers'?3:2;
     const size=view==='covers'?110:140,gap=view==='covers'?10:12;
-    return Math.max(1,Math.floor(($('characters').clientWidth+gap)/(size+gap)));
+    return Math.max(1,Math.ceil(($('characters').clientWidth+gap)/(size+gap)));
 }
 const shelfResize=new ResizeObserver(()=>{
     const host=$('characters'),view=$('library-view').value;
