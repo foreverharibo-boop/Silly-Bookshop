@@ -4,7 +4,7 @@ from pathlib import Path
 import hashlib,json,re,sys,zipfile,subprocess
 root=Path(__file__).resolve().parents[1]
 subprocess.run(['node',str(root/'scripts/build-renderer.cjs'),'--check'],check=True)
-top={'.gitignore','.gitattributes','package.json','setup.cjs','README.md','SECURITY.md','TESTING.md','PUBLISHING.md','CHANGELOG.md'}
+top={'.gitignore','.gitattributes','package.json','setup.cjs','README.md','SECURITY.md','TESTING.md','PUBLISHING.md','CHANGELOG.md','RELEASE_NOTES.md'}
 trees={'server','scripts','client'}
 android_files={'android/AndroidManifest.xml','android/build.sh'}
 android_trees=('android/src/','android/res/','android/tests/','android/offline/')
@@ -35,6 +35,7 @@ with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
 with zipfile.ZipFile(output) as archive:
     assert archive.testzip() is None
     assert not any(secret_name.fullmatch(Path(name).name) for name in archive.namelist())
-artifacts=[output]+sorted(dest.glob('*.apk'))
+apk=dest/('silly-bookshop-'+version+'.apk')
+artifacts=[output]+([apk] if apk.is_file() else [])
 (dest/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in artifacts))
 print(output.name)

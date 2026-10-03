@@ -1,6 +1,6 @@
 {
   "name": "silly-bookshop",
-  "version": "0.9.5-test.6",
+  "version": "1.0.0",
   "description": "실리 책방 — private read-only SillyTavern chat reader",
   "private": true,
   "license": "UNLICENSED",
