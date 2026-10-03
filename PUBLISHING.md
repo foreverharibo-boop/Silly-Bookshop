@@ -1,11 +1,11 @@
-# 실리 책방 1.0.1 배포와 빌드
+# 실리 책방 1.0.2 배포와 빌드
 
-서버·웹 버전은 **1.0.1**, Android APK 버전은 **1.0.0**, Android versionCode는 **18**입니다. 패키지는 `app.silly.bookshop`, 설치 폴더는 `plugins/silly-bookshop`입니다.
+서버·웹 버전은 **1.0.2**, Android APK 버전은 **1.0.2**, Android versionCode는 **21**입니다. 패키지는 `app.silly.bookshop`, 설치 폴더는 `plugins/silly-bookshop`입니다.
 
 ## 공개 파일
 
-- 공개 소스: `dist/silly-bookshop-github-1.0.1.zip`
-- Android 설치 파일: `dist/silly-bookshop-1.0.0.apk`
+- 공개 소스: `dist/silly-bookshop-github-1.0.2.zip`
+- Android 설치 파일: `dist/silly-bookshop-1.0.2.apk`
 - 위 파일의 SHA-256: `dist/SHA256SUMS.txt`
 - 릴리스 본문: [RELEASE_NOTES.md](RELEASE_NOTES.md)
 
@@ -16,9 +16,9 @@
 ## 릴리스 게시
 
 1. [TESTING.md](TESTING.md)의 현행 검증 상태와 지원 조건을 확인합니다. 사용자 기기 보고와 자동 검사를 구분하며 기록되지 않은 테스트를 완료로 표시하지 않습니다.
-2. 1.0.1 소스가 반영된 커밋을 선택해 `v1.0.1` 태그로 고정합니다.
-3. GitHub → Releases → Draft a new release에서 제목을 **실리 책방 1.0.1**으로 설정합니다.
-4. [RELEASE_NOTES.md](RELEASE_NOTES.md) 본문을 붙이고 APK·공개 소스 ZIP·SHA256SUMS.txt를 첨부합니다. 상대 문서 링크는 게시할 태그의 파일 링크로 바꿉니다.
+2. 1.0.2 소스가 반영된 커밋을 선택해 `v1.0.2` 태그로 고정합니다.
+3. GitHub → Releases → Draft a new release에서 제목을 **실리 책방 1.0.2**으로 설정합니다.
+4. [RELEASE_NOTES.md](RELEASE_NOTES.md) 본문을 붙이고 **APK 하나만 첨부합니다.** 소스는 GitHub 자동 Source code 링크로 제공하고, 체크섬은 릴리스 본문에 기록합니다. 상대 문서 링크는 게시할 태그의 파일 링크로 바꿉니다.
 5. 사용자 결정에 따른 첫 정식 버전이므로 pre-release 표시는 끕니다. 첨부 파일과 다운로드 링크를 확인한 뒤 게시합니다.
 
 이 저장소에는 태그·릴리스 자동 게시 또는 서명 키를 올리는 CI가 없습니다. 코드 반영·파일 준비와 실제 Releases 게시 여부는 별도로 확인합니다. 커뮤니티 글에는 저장소 또는 게시 완료한 Releases 링크를 사용합니다.

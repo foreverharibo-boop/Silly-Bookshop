@@ -1,3 +1,25 @@
-body{height:100dvh;display:flex;flex-direction:column}#offline-head{padding:12px 18px;border-bottom:1px solid var(--line);flex-shrink:0;max-height:50dvh;overflow:auto}h2{font-size:16px;margin:4px 0}#offline-transcript{overflow:auto;flex:1;min-height:0;padding:20px 14px 65px;overscroll-behavior:contain}#offline-transcript .message{margin-bottom:26px}#offline-footer{flex-shrink:0}select{font:inherit;background:var(--side);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;max-width:100%;display:block;margin:5px 0}label{font-size:12px}.settings-grid{padding-top:12px}summary{cursor:pointer;font-size:13px}#off-exit{position:fixed;right:14px;bottom:14px;padding:8px 16px;background:var(--paper);border:1px solid var(--line);border-radius:20px}html[data-focus=true] #offline-head,html[data-focus=true] #offline-footer{display:none!important}.message .bubble{width:100%}#off-marks{max-width:100%}
-
-.settings-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 16px}.settings-grid>label{min-width:0}.settings-grid select{width:100%;min-height:40px;margin:8px 0 0}.settings-grid>label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px;align-self:end;min-height:40px}
+/* The online reader's type, bubbles, tools and dialogs come from style.css. */
+body{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+#offline-head,#offline-chat-head,#offline-footer{flex-shrink:0}
+#offline-transcript{flex:1;min-height:0;overflow:auto;padding:26px max(24px,calc((100% - 920px)/2));overscroll-behavior:contain;overflow-anchor:none;scrollbar-width:thin}
+#offline-person{font-size:11px;color:var(--muted)}
+.top-actions button{white-space:nowrap;font-size:12px}
+#off-home,#off-tools{border:1px solid var(--line);border-radius:10px;padding:0 12px;min-height:36px}
+#off-refresh:disabled{opacity:.45;cursor:not-allowed}
+#off-exit{position:fixed;right:14px;bottom:14px;z-index:5;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:20px;padding:6px 16px;font-size:12px}
+html[data-focus=true] #offline-head,html[data-focus=true] #offline-chat-head,html[data-focus=true] #offline-footer{display:none!important}
+.off-sentinel{height:1px;pointer-events:none}
+.off-mark-row{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:8px 0}
+.off-mark-row button:first-child{flex:1;text-align:left;overflow-wrap:anywhere;min-width:0;padding:8px}
+.off-mark-row button:last-child{color:var(--blue);font-size:12px}
+#off-settings .settings-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 16px}
+#off-settings .settings-grid>label{min-width:0}
+#off-settings .settings-grid select{width:100%;margin:8px 0 0}
+#off-settings .settings-grid>label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px;align-self:end;min-height:40px}
+#off-settings>label{margin-top:16px}
+.dialog-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;margin-top:16px}
+.dialog-actions button,.dialog-actions .primary{width:auto;min-height:32px;margin:0;padding:6px 13px;font-size:12px;line-height:1.4;text-align:center;justify-content:center;border:1px solid var(--line);border-radius:8px}
+.dialog-actions [data-close]{order:10}
+#off-search-form .primary{width:auto;min-height:32px;justify-content:center;padding:6px 14px;font-size:12px}
+form [role=status]{white-space:pre-line}
+@media(max-width:640px){#offline-transcript{padding:24px 15px}.top-actions{gap:4px}#off-home,#off-tools{padding:0 8px}.reading-tools{margin-left:auto;flex-wrap:wrap}.chat-head h2{font-size:17px}}

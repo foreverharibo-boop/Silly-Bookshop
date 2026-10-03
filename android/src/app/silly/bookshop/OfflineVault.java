@@ -26,17 +26,31 @@ final class OfflineVault {
  private static File dir(Context ctx)throws IOException{File d=new File(ctx.getNoBackupFilesDir(),"offline-v1");if(!d.isDirectory()&&!d.mkdirs())throw new IOException("Vault directory");return d;}
  private static File file(Context ctx,String id)throws IOException{if(id==null||!id.matches("[a-f0-9]{64}"))throw new IOException("Invalid vault id");return new File(dir(ctx),id+".vault");}
  static synchronized String save(Context ctx,String server,String json)throws Exception{
+  return store(ctx,server,json,true);
+ }
+ private static String store(Context ctx,String server,String json,boolean preserve)throws Exception{
   byte[] plain=null;
   try{
    JSONObject obj=new JSONObject(json);if(obj.optInt("schema")!=1||!"saved-display-v1".equals(obj.optString("displayPolicy")))throw new IOException("Snapshot version");
    JSONArray messages=obj.getJSONArray("messages");if(messages.length()>5000)throw new IOException("Message limit");
    obj.put("server",server);String id=hash(server+"\n"+obj.optString("scope")+"\n"+obj.getJSONObject("meta").getString("id"));obj.put("vaultId",id);
+   if(preserve&&file(ctx,id).isFile()){JSONObject old=new JSONObject(read(ctx,id));if(old.has("readerState"))obj.put("readerState",old.getJSONObject("readerState"));}
    plain=obj.toString().getBytes(StandardCharsets.UTF_8);if(plain.length>LIMIT)throw new IOException("Size limit");
    File target=file(ctx,id);long total=plain.length;int count=0;for(File f:dir(ctx).listFiles()){if(f.getName().endsWith(".vault")){count++;if(!f.equals(target))total+=f.length();}}
    if((!target.exists()&&count>=20)||total>128L*1024*1024)throw new IOException("보관함은 20개 대화 / 총 128MB까지 지원해요.");
    byte[] encrypted=VaultCipher.encrypt(key(),id,plain);AtomicFile atomic=new AtomicFile(target);FileOutputStream out=null;
    try{out=atomic.startWrite();out.write(encrypted);atomic.finishWrite(out);}catch(Exception e){if(out!=null)atomic.failWrite(out);throw e;}ctx.getSharedPreferences("offline-status-v2",Context.MODE_PRIVATE).edit().putString(id,new JSONObject().put("created",obj.optLong("created")).put("revision",obj.optString("revision")).toString()).apply();return id;
   }finally{if(plain!=null)Arrays.fill(plain,(byte)0);}
+ }
+ static synchronized void updateReader(Context ctx,String id,JSONObject input)throws Exception{
+  JSONObject obj=new JSONObject(read(ctx,id));int count=obj.getJSONArray("messages").length();
+  String alias=input.getString("alias");JSONArray marks=input.getJSONArray("bookmarks");JSONObject position=input.getJSONObject("position");
+  int index=position.getInt("index");double fraction=position.getDouble("fraction");
+  if(alias.length()>120||marks.length()>100||index<0||index>=Math.max(1,count)||Double.isNaN(fraction)||Double.isInfinite(fraction)||fraction<0||fraction>1)throw new IOException("Reader state limit");
+  JSONArray clean=new JSONArray();java.util.HashSet<Integer> seen=new java.util.HashSet<>();
+  for(int i=0;i<marks.length();i++){JSONObject m=marks.getJSONObject(i);int n=m.getInt("index");String note=m.getString("note");if(n<0||n>=count||note.length()>500||!seen.add(n))throw new IOException("Bookmark limit");clean.put(new JSONObject().put("index",n).put("note",note));}
+  obj.put("readerState",new JSONObject().put("alias",alias).put("bookmarks",clean).put("position",new JSONObject().put("index",index).put("fraction",fraction)));
+  store(ctx,obj.getString("server"),obj.toString(),false);
  }
  static synchronized String read(Context ctx,String id)throws Exception{
   File f=file(ctx,id);if(f.length()>LIMIT+1024)throw new IOException("Size limit");
@@ -46,7 +60,7 @@ final class OfflineVault {
  static synchronized JSONArray list(Context ctx)throws Exception{
   JSONArray out=new JSONArray();File[] files=dir(ctx).listFiles();if(files==null)return out;
   for(File f:files){String name=f.getName();if(!name.matches("[a-f0-9]{64}\\.vault"))continue;String id=name.substring(0,64);
-   try{JSONObject data=new JSONObject(read(ctx,id));out.put(new JSONObject().put("id",id).put("title",data.getJSONObject("meta").optString("alias", "").isEmpty()?data.getJSONObject("meta").optString("title"):data.getJSONObject("meta").optString("alias")).put("character",data.getJSONObject("meta").optString("character")).put("created",data.optLong("created")).put("server",data.optString("server")));}
+   try{JSONObject data=new JSONObject(read(ctx,id));out.put(new JSONObject().put("id",id).put("title",title(data)).put("character",data.getJSONObject("meta").optString("character")).put("created",data.optLong("created")).put("server",data.optString("server")));}
    catch(android.security.keystore.UserNotAuthenticatedException e){throw e;}
    catch(Exception e){out.put(new JSONObject().put("id",id).put("title","열 수 없는 보관본 · 삭제 후 다시 보관해 주세요").put("character","").put("created",0));}
   }return out;
@@ -58,5 +72,6 @@ final class OfflineVault {
   String id=hash(server+"\n"+scope+"\n"+chat),saved=ctx.getSharedPreferences("offline-status-v2",Context.MODE_PRIVATE).getString(id,"");JSONObject result=new JSONObject().put("id",chat).put("scope",scope).put("exists",false);
   if(!saved.isEmpty()&&file(ctx,id).isFile()){JSONObject metadata=new JSONObject(saved);result.put("exists",true).put("created",metadata.optLong("created")).put("revision",metadata.optString("revision"));}return result;
  }
+ private static String title(JSONObject data)throws Exception{JSONObject state=data.optJSONObject("readerState"),meta=data.getJSONObject("meta");String alias=state==null?meta.optString("alias"):state.optString("alias");return alias.isEmpty()?meta.optString("title"):alias;}
  private static String hash(String text)throws Exception{byte[] b=MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));StringBuilder out=new StringBuilder();for(byte v:b)out.append(String.format("%02x",v&255));return out.toString();}
 }

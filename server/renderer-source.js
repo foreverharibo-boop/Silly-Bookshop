@@ -73,5 +73,5 @@ window.BookshopRich=(()=>{
     }
     function refresh(root){root.querySelectorAll('iframe.rich-output').forEach(frame=>{try{syncFrame(frame);}catch{}});}
     function clear(root){root.querySelectorAll('iframe.rich-output').forEach(frame=>frame._bookshopDispose?.());}
-    return {mount,refresh,clear,version:'1.0.1'};
+    return {mount,refresh,clear,version:'1.0.2'};
 })();

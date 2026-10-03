@@ -3,6 +3,7 @@ set -euo pipefail
 # Requires Android SDK Build Tools 35, API 35 platform, Java 17+ and javac or ECJ.
 # SILLY_BUILD_TOOLS=/.../35.0.0 SILLY_ANDROID_JAR=/.../android.jar SILLY_ECJ=/.../ecj.jar bash build.sh
 cd "$(dirname "$0")"
+node ../scripts/sync-offline-reader.cjs --check
 : "${SILLY_BUILD_TOOLS:?Set Android build-tools path}"
 : "${SILLY_ANDROID_JAR:?Set Android platform android.jar path}"
 : "${SILLY_KEYSTORE:?Set path to existing PRIVATE keystore outside the repository}"
@@ -47,5 +48,5 @@ PY
 "$SILLY_BUILD_TOOLS/zipalign" -f 4 "$build_work/unsigned.apk" "$build_work/aligned.apk"
 signed_apk="$build_work/signed.apk"
 "$SILLY_BUILD_TOOLS/apksigner" sign --ks "$SILLY_KEYSTORE" --ks-pass "file:$SILLY_KEY_PASSWORD_FILE" --out "$signed_apk" "$build_work/aligned.apk"
-cp "$signed_apk" ../dist/silly-bookshop-1.0.1.apk
-"$SILLY_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-1.0.1.apk
+cp "$signed_apk" ../dist/silly-bookshop-1.0.2.apk
+"$SILLY_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-1.0.2.apk
