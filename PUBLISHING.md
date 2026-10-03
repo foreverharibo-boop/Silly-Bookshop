@@ -1,10 +1,10 @@
 # 깃허브 업로드와 APK 배포
 
-현재 서버·웹·Android APK 버전은 0.9.3-test.1입니다.
+현재 서버·웹·Android APK 버전은 0.9.4-test.1입니다.
 
 ## 공개 저장소에 올릴 것
 
-`silly-bookshop-github-0.9.3-test.1.zip`을 압축 해제한 **silly-bookshop 폴더 안의 내용**을 업로드합니다. 저장소의 최상위에 `package.json`이 있어야 합니다. ZIP 파일만 올리거나 폴더를 한 단계 더 감싸면 플러그인으로 바로 로드되지 않습니다.
+`silly-bookshop-github-0.9.4-test.1.zip`을 압축 해제한 **silly-bookshop 폴더 안의 내용**을 업로드합니다. 저장소의 최상위에 `package.json`이 있어야 합니다. ZIP 파일만 올리거나 폴더를 한 단계 더 감싸면 플러그인으로 바로 로드되지 않습니다.
 
 이 ZIP에는 앱 서명 키, 암호 파일, 채팅, 실리 설정, 사용자 인증 파일, APK, 과거 Git 이력이 포함되지 않습니다. `.gitignore`만 믿지 않고 공개 파일 허용 목록을 기준으로 생성합니다.
 
@@ -42,7 +42,7 @@ SILLY_KEY_PASSWORD_FILE=/저장소밖/개인보관/password.txt \
 bash android/build.sh
 ```
 
-빌드는 키를 새로 만들지 않고 `dist/silly-bookshop-0.9.3-test.1.apk`를 생성합니다. 공개 소스 ZIP에는 APK가 포함되지 않으므로 Releases에 APK를 따로 붙입니다. 빌드 도구는 Google 공식 Android SDK, ECJ는 Eclipse 공식 배포처에서 받으세요.
+빌드는 키를 새로 만들지 않고 `dist/silly-bookshop-0.9.4-test.1.apk`를 생성합니다. 공개 소스 ZIP에는 APK가 포함되지 않으므로 Releases에 APK를 따로 붙입니다. 빌드 도구는 Google 공식 Android SDK, ECJ는 Eclipse 공식 배포처에서 받으세요.
 
 APK 서명 인증서 SHA-256은 검증 결과에 남깁니다. 인증서는 공개 정보이며 개인 키와 다릅니다. APK에 포함된 인증서를 추출하는 것으로 서명 개인 키가 노출되지는 않습니다.
 
