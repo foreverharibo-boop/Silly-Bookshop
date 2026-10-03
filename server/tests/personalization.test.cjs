@@ -20,7 +20,7 @@ test('shelf settings and cover are account-isolated; original files unchanged; b
  await shelf.cover(a,'character:A.png','data:image/png;base64,'+png().toString('base64'));
  const ac=await shelf.decorate(a,await c.catalog(a,{withCharacters:true})),bc=await shelf.decorate(b,await c.catalog(b,{withCharacters:true}));
  assert.equal(ac.characters[0].favorite,true);assert.equal(ac.chats[0].alias,'비 오는 날');assert.equal(bc.characters[0].favorite,false);assert.equal(bc.chats[0].alias,'');assert.notEqual(ac.scope,bc.scope);assert.equal(ac.scope,(await shelf.state(a)).scope);
- assert.deepEqual(await shelf.cover(a,'character:A.png'),png());await assert.rejects(()=>shelf.cover(b,'character:A.png'),{status:404});
+ assert.deepEqual(await shelf.cover(a,'character:A.png'),png());const snapshot=await reading.snapshot(a,id);assert.equal(snapshot.meta.photo,'data:image/png;base64,'+png().toString('base64'));await assert.rejects(()=>shelf.cover(b,'character:A.png'),{status:404});
  const corrupt=png();corrupt[20]^=1;assert.throws(()=>shelf.cleanPng(corrupt),{status:415});assert.throws(()=>shelf.cleanPng(Buffer.from('<svg onload="alert(1)">')),{status:415});await assert.rejects(()=>shelf.cover(a,'../../auth',null),{status:404});await assert.rejects(()=>shelf.change(a,{kind:'alias',id,value:'x'.repeat(101)}),{status:400});
  await shelf.change(a,{kind:'alias',id,value:''});await shelf.cover(a,'character:A.png',null);assert.equal((await shelf.decorate(a,await c.catalog(a,{withCharacters:true}))).characters[0].cover,'');
  assert.deepEqual(await fs.readFile(path.join(a.characters,'A.png')),original);assert.deepEqual(await fs.readFile(path.join(a.chats,'A','one.jsonl')),raw);

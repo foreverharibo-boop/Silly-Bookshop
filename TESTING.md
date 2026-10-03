@@ -1,6 +1,12 @@
 # 검증 기록 / 공개 전 남은 실기 테스트
 
-버전: **서버·웹·APK 0.8.0-test.1 / 브라우저 확장 없음**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
+버전: **서버·웹·APK 0.8.1-test.1 / 브라우저 확장 없음**. 자동 검사를 통과해도 아래 실기 항목이 끝나기 전에는 정식 배포 완료로 보지 않습니다.
+
+## 0.8.1 변경 검증
+
+- Chromium: 전용 사진 픽셀을 목록형·책표지형·대화 프사에서 확인. 대화 갱신과 전체 새로고침 뒤에도 선택한 사진 유지. 미보관 콜백은 빈 텍스트/hidden, 보관한 사본의 날짜/갱신 표시는 유지.
+- 서버: PNG를 오프라인 스냅샷에 포함하는 검사 통과. 기존 계정 격리와 실리 프사·채팅 원본 불변 검사 통과.
+- APK versionCode 12 빌드. 갤러리/파일 선택 분기 및 취소·서버·content URI 제한은 코드와 컴파일 확인. 실제 Samsung 갤러리/파일 선택 화면은 실기 확인 필요.
 
 ## 0.8.0 변경 검증
 
@@ -173,7 +179,7 @@ java -cp /tmp/silly-url-test UrlPolicyTest
 
 - 패키지: `app.silly.bookshop`
 - 표시 이름: 실리 책방
-- versionCode: 11 / versionName: 0.8.0-test.1
+- versionCode: 12 / versionName: 0.8.1-test.1
 - Android API 26 이상 / target API 35
 - 앱이 요청하는 권한: INTERNET
 - 서명 인증서 SHA-256: `d7ca695de38f3708bee090e88d8a4306bb05f332575b49cbbe1ea0db395ddfae`

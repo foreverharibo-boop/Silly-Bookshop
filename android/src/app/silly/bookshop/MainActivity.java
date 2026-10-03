@@ -68,7 +68,7 @@ public final class MainActivity extends Activity {
         root.addView(toolbar);applyTheme(prefs.getString("toolbar-theme","light"));
         WebView.setWebContentsDebuggingEnabled(false);
         web=new WebView(this);root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
-        WebSettings s=web.getSettings();s.setUserAgentString(s.getUserAgentString()+" SillyBookshop/0.8.0");s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        WebSettings s=web.getSettings();s.setUserAgentString(s.getUserAgentString()+" SillyBookshop/0.8.1");s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
         if(Build.VERSION.SDK_INT>=26)s.setSafeBrowsingEnabled(true);
         s.setSavePassword(false);
         CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
@@ -76,12 +76,13 @@ public final class MainActivity extends Activity {
             @Override public boolean onShowFileChooser(WebView view,android.webkit.ValueCallback<android.net.Uri[]> callback,FileChooserParams params){
                 if(!readerPage()||params.getMode()!=FileChooserParams.MODE_OPEN)return false;
                 if(imageChooser!=null)imageChooser.onReceiveValue(null);imageChooser=callback;chooserServer=server;
-                Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);picker.addCategory(Intent.CATEGORY_OPENABLE);picker.setType("image/*");picker.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"image/png","image/jpeg","image/webp"});
-                try{startActivityForResult(picker,71);}catch(Exception e){imageChooser.onReceiveValue(null);imageChooser=null;}return true;
+                new AlertDialog.Builder(MainActivity.this).setTitle("사진을 어디에서 고를까요?")
+                    .setItems(new String[]{"갤러리에서 고르기","파일에서 고르기"},(d,which)->chooseImage(which==0))
+                    .setNegativeButton("취소",(d,w)->cancelImageChooser()).setOnCancelListener(d->cancelImageChooser()).show();return true;
             }
         });
         web.setWebViewClient(new WebViewClient(){
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,android.webkit.WebResourceError error){if(request.isForMainFrame())new AlertDialog.Builder(MainActivity.this).setTitle("책방 연결 확인").setMessage("실리 서버에 연결하지 못했어요.\n실리 실행 상태, 서버 주소·포트, 테일스케일 연결을 확인한 뒤 화면 새로고침을 눌러 주세요.\n앱 버전 0.8.0-test.1").setPositiveButton("확인",null).show();}
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,android.webkit.WebResourceError error){if(request.isForMainFrame())new AlertDialog.Builder(MainActivity.this).setTitle("책방 연결 확인").setMessage("실리 서버에 연결하지 못했어요.\n실리 실행 상태, 서버 주소·포트, 테일스케일 연결을 확인한 뒤 화면 새로고침을 눌러 주세요.\n앱 버전 0.8.1-test.1").setPositiveButton("확인",null).show();}
 
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest req){return !(!req.isForMainFrame() && isReaderFrame(req.getUrl().toString())) && !allowed(req.getUrl().toString());}
             @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest req){
@@ -109,6 +110,17 @@ public final class MainActivity extends Activity {
         server=prefs.getString("server","");
         try{if(!server.isEmpty())server=UrlPolicy.normalize(server);}catch(Exception e){server="";prefs.edit().remove("server").apply();}
         if(server.isEmpty())configure();else openLibrary();
+    }
+    private void cancelImageChooser(){if(imageChooser!=null){imageChooser.onReceiveValue(null);imageChooser=null;}}
+    private void chooseImage(boolean gallery){
+        if(imageChooser==null)return;if(!readerPage()||!server.equals(chooserServer)){cancelImageChooser();return;}
+        if(gallery){
+            Intent photos=new Intent(Intent.ACTION_PICK,android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);photos.setType("image/*");photos.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try{startActivityForResult(photos,71);return;}catch(android.content.ActivityNotFoundException e){}catch(SecurityException e){}
+            if(Build.VERSION.SDK_INT>=33){try{Intent picker=new Intent(android.provider.MediaStore.ACTION_PICK_IMAGES);picker.setType("image/*");startActivityForResult(picker,71);return;}catch(android.content.ActivityNotFoundException e){}catch(SecurityException e){}}
+        }
+        Intent files=new Intent(Intent.ACTION_GET_CONTENT);files.addCategory(Intent.CATEGORY_OPENABLE);files.setType("image/*");files.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"image/png","image/jpeg","image/webp"});files.putExtra(Intent.EXTRA_LOCAL_ONLY,true);files.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try{startActivityForResult(Intent.createChooser(files,gallery?"사진을 고를 앱 선택":"파일 앱 선택"),71);}catch(Exception e){cancelImageChooser();new AlertDialog.Builder(this).setMessage("사진을 선택할 앱을 열지 못했어요. 갤러리 또는 파일 앱이 설치되어 있는지 확인해 주세요.").setPositiveButton("확인",null).show();}
     }
     private boolean isReaderFrame(String url){return "about:srcdoc".equals(url)||"about:blank".equals(url);}
     private boolean allowed(String url){
