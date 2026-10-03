@@ -42,5 +42,8 @@ with zipfile.ZipFile('build/unsigned.apk','a',compression=zipfile.ZIP_DEFLATED) 
     z.write('build/dex/classes.dex','classes.dex')
 PY
 "$SILLY_BUILD_TOOLS/zipalign" -f 4 build/unsigned.apk build/aligned.apk
-"$SILLY_BUILD_TOOLS/apksigner" sign --ks "$SILLY_KEYSTORE" --ks-pass "file:$SILLY_KEY_PASSWORD_FILE" --out ../dist/silly-bookshop-0.7.1-test.1.apk build/aligned.apk
-"$SILLY_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-0.7.1-test.1.apk
+signed_apk="$(mktemp "${TMPDIR:-/tmp}/silly-bookshop-signed.XXXXXX.apk")"
+trap 'rm -f "$signed_apk" "$signed_apk.idsig"' EXIT
+"$SILLY_BUILD_TOOLS/apksigner" sign --ks "$SILLY_KEYSTORE" --ks-pass "file:$SILLY_KEY_PASSWORD_FILE" --out "$signed_apk" build/aligned.apk
+cp "$signed_apk" ../dist/silly-bookshop-0.8.0-test.1.apk
+"$SILLY_BUILD_TOOLS/apksigner" verify --verbose ../dist/silly-bookshop-0.8.0-test.1.apk

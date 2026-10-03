@@ -1,5 +1,5 @@
 'use strict';
-const path=require('node:path'),c=require('./core.cjs'),display=require('./display.cjs');
+const fs=require('node:fs/promises'),shelf=require('./shelf.cjs'),path=require('node:path'),c=require('./core.cjs'),display=require('./display.cjs');
 async function bookmarks(dirs,id,change){
  await c.chatFile(dirs,id);
  const file=path.join(await c.stateDir(dirs.root),'bookmarks.json');
@@ -24,11 +24,12 @@ async function recent(dirs,chats){
  const visits=await c.readJson(path.join(await c.stateDir(dirs.root),'visits.json'),{}),time=id=>Math.max(visits[id]||0,saved[id]?.updated||0);
  return chats.filter(x=>time(x.id)).sort((a,b)=>time(b.id)-time(a.id)).slice(0,10).map(x=>({...x,position:saved[x.id]||{index:0,fraction:0}}));
 }
+function revision(stat,context){return ['saved-display-1',stat.ino,stat.mtimeMs,stat.ctimeMs,stat.size,context.revision].join(':');}
 async function snapshot(dirs,id,cancelled=()=>false){
  const began=Date.now();
- const entries=await c.catalog(dirs,{withCharacters:true}),meta=entries.chats.find(x=>x.id===id);
+ const entries=await shelf.decorate(dirs,await c.catalog(dirs,{withCharacters:true})),meta=entries.chats.find(x=>x.id===id);
  if(!meta)throw c.fail(404,'현재 실리에 있는 대화만 보관할 수 있어요.');
- const context=await display.load(dirs,id),parsed=c.parseChat(await c.readText(await c.chatFile(dirs,id),32*1024*1024));
+ const file=await c.chatFile(dirs,id),context=await display.load(dirs,id),before=revision(await fs.stat(file),context),parsed=c.parseChat(await c.readText(file,32*1024*1024));
  if(parsed.messages.length>5000)throw c.fail(413,'오프라인 보관은 한 대화에 최대 5,000개 메시지까지 지원해요.');
  const messages=[];let bytes=0;
  for(let i=0;i<parsed.messages.length;i+=30){
@@ -37,6 +38,7 @@ async function snapshot(dirs,id,cancelled=()=>false){
   if(views.some(m=>m.error))throw c.fail(409,'표시하지 못한 메시지가 있어요. 정규식을 확인한 뒤 다시 보관해 주세요.');
   bytes+=Buffer.byteLength(JSON.stringify(views));if(bytes>16*1024*1024)throw c.fail(413,'오프라인 대화는 16MB까지 보관할 수 있어요.');messages.push(...views);
  }
- return {schema:1,displayPolicy:'saved-display-v1',created:Date.now(),meta,messages,saved:await c.position(dirs.root,id),bookmarks:await bookmarks(dirs,id)};
+ if(before!==revision(await fs.stat(file),await display.load(dirs,id)))throw c.fail(409,'보관 중 대화가 바뀌었어요. 다시 보관해 주세요.');
+ return {scope:entries.scope,revision:before,schema:1,displayPolicy:'saved-display-v1',created:Date.now(),meta,messages,saved:await c.position(dirs.root,id),bookmarks:await bookmarks(dirs,id)};
 }
-module.exports={bookmarks,recent,snapshot,visit};
+module.exports={bookmarks,recent,snapshot,visit,revision};

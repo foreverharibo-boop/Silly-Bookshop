@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
-const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs'),reading=require('./reading.cjs');
-const BASE='/api/plugins/silly-bookshop',VERSION='0.7.1-test.1';
+const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs'),reading=require('./reading.cjs'),shelf=require('./shelf.cjs'),search=require('./search.cjs');
+const BASE='/api/plugins/silly-bookshop',VERSION='0.8.0-test.1';
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -36,7 +36,7 @@ async function init(router){
         if(req.method==='POST'){
             if(!security.sameOrigin(req)||req.get('x-silly-request')!=='1'||!req.is('application/json'))throw c.fail(403,'책방 화면에서 다시 시도해 주세요.');
             if(!req.body||Array.isArray(req.body)||typeof req.body!=='object')throw c.fail(400,'잘못된 요청입니다.');
-            if(Buffer.byteLength(JSON.stringify(req.body))>(req.path==='/capture'?1024*1024:8192))throw c.fail(413,'요청이 너무 큽니다.');
+            if(Buffer.byteLength(JSON.stringify(req.body))>(req.path==='/capture'?1024*1024:req.path==='/cover'?750000:8192))throw c.fail(413,'요청이 너무 큽니다.');
         }
         next();
     }));
@@ -50,7 +50,7 @@ async function init(router){
     router.get('/status',wrap(async(req,res)=>{
         statusRate(req.socket.remoteAddress);
         const conf=await c.authConfig(req.user.directories.root);
-        res.json({configured:!!conf,authenticated:!!authenticated(req,conf),version:VERSION});
+        res.json({configured:!!conf,authenticated:!!authenticated(req,conf),version:VERSION,protocol:2,minAppVersion:'0.8.0'});
     }));
     router.post('/login',wrap(async(req,res)=>{
         const root=req.user.directories.root,now=Date.now();
@@ -97,7 +97,11 @@ async function init(router){
         if(mode==='password'){revoke(root);setCookie(req,res,'',0);}
         res.json({ok:true,...result});
     }));
-    router.get('/catalog',wrap(async(req,res)=>res.json(await heavyRead(async()=>{const data=await c.catalog(req.user.directories,{withCharacters:true});return {...data,recent:await reading.recent(req.user.directories,data.chats)};}))));
+    router.get('/catalog',wrap(async(req,res)=>res.json(await heavyRead(async()=>{const data=await shelf.decorate(req.user.directories,await c.catalog(req.user.directories,{withCharacters:true}));return {...data,recent:await reading.recent(req.user.directories,data.chats)};}))));
+    router.post('/shelf',wrap(async(req,res)=>res.json(await heavyRead(()=>shelf.change(req.user.directories,req.body)))));
+    router.get('/cover',wrap(async(req,res)=>res.type('png').send(await avatarRead(()=>shelf.cover(req.user.directories,req.query.key)))));
+    router.post('/cover',wrap(async(req,res)=>{if(!Object.hasOwn(req.body,'image'))throw c.fail(400,'표지를 선택해 주세요.');res.json(await heavyRead(()=>shelf.cover(req.user.directories,req.body.key,req.body.image)));}));
+    router.get('/search',wrap(async(req,res)=>res.json(await heavyRead(()=>search.search(req.user.directories,req.query.id,req.query.q,Number(req.query.cursor||0),()=>req.aborted||res.destroyed)))));
     router.post('/visit',wrap(async(req,res)=>res.json(await reading.visit(req.user.directories,req.body.id))));
     router.get('/bookmarks',wrap(async(req,res)=>res.json(await reading.bookmarks(req.user.directories,req.query.id))));
     router.post('/bookmarks',wrap(async(req,res)=>res.json(await heavyRead(()=>reading.bookmarks(req.user.directories,req.body.id,req.body)))));
@@ -108,7 +112,7 @@ async function init(router){
             const file=await c.chatFile(req.user.directories,req.query.id),stat=await fs.stat(file);
             if(stat.size>32*1024*1024)throw c.fail(413,'32MB를 넘는 대화는 현재 버전에서 열 수 없습니다.');
             const context=await display.load(req.user.directories,req.query.id);
-            const revision=['saved-display-1',stat.ino,stat.mtimeMs,stat.ctimeMs,stat.size,context.revision].join(':');
+            const revision=reading.revision(stat,context);
             if(req.query.revision===revision)return {unchanged:true,revision};
             const parsed=c.parseChat(await c.readText(file,32*1024*1024));
             const saved=await c.position(req.user.directories.root,req.query.id);

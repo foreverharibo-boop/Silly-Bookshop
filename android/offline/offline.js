@@ -4,7 +4,7 @@
  const data=await (await fetch('/snapshot',{cache:'no-store'})).json(),key='offline-position:'+data.vaultId;
  let first=0,restoring=false,timer;const families={system:'system-ui,sans-serif',gothic:'"Bookshop Gothic",sans-serif',myeongjo:'"Bookshop Myeongjo",serif',batang:'"Bookshop Batang",serif',ridi:'"Bookshop RIDI",serif'};
  const node=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls||'';if(text!==undefined)e.textContent=text;return e;};
- $('offline-title').textContent=data.meta.character+' · '+data.meta.title;$('offline-date').textContent=new Date(data.created).toLocaleString('ko-KR')+' 보관본 · 서버에 연결하지 않아요';
+ $('offline-title').textContent=data.meta.character+' · '+(data.meta.alias||data.meta.title);$('offline-date').textContent=new Date(data.created).toLocaleString('ko-KR')+' 보관본 · 서버에 연결하지 않아요';
  const prefs=data.preferences||{};let local={};try{local=JSON.parse(localStorage.getItem('offline-style')||'{}');}catch{}
  for(const [id,k,def]of [['off-theme','theme','light'],['off-font','font','system'],['off-line','line','1.85'],['off-padding','padding','24'],['off-size','size','16']]){const v=String(local[k]??prefs[k]??def);$(id).value=[...$(id).options].some(o=>o.value===v)?v:def;$(id).onchange=()=>apply(true);}
  $('off-bold').checked=local.bold??prefs.bold??false;$('off-bold').onchange=()=>apply(true);

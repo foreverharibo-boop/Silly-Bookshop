@@ -45,6 +45,7 @@ public final class MainActivity extends Activity {
     private volatile String server = "";
     private SharedPreferences prefs;
     private boolean loginRedirect = false;
+    private android.webkit.ValueCallback<android.net.Uri[]> imageChooser;private String chooserServer="";
     private boolean exporting=false;private int exportGeneration=0;private String exportServer="";
     private int dp(int n) {return (int)(getResources().getDisplayMetrics().density*n+.5f);}
     @Override public void onCreate(Bundle saved) {
@@ -67,11 +68,21 @@ public final class MainActivity extends Activity {
         root.addView(toolbar);applyTheme(prefs.getString("toolbar-theme","light"));
         WebView.setWebContentsDebuggingEnabled(false);
         web=new WebView(this);root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
-        WebSettings s=web.getSettings();s.setUserAgentString(s.getUserAgentString()+" SillyBookshop/0.7.1");s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        WebSettings s=web.getSettings();s.setUserAgentString(s.getUserAgentString()+" SillyBookshop/0.8.0");s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setSupportMultipleWindows(false);s.setJavaScriptCanOpenWindowsAutomatically(false);s.setMediaPlaybackRequiresUserGesture(true);s.setCacheMode(WebSettings.LOAD_DEFAULT);
         if(Build.VERSION.SDK_INT>=26)s.setSafeBrowsingEnabled(true);
         s.setSavePassword(false);
         CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
+        web.setWebChromeClient(new android.webkit.WebChromeClient(){
+            @Override public boolean onShowFileChooser(WebView view,android.webkit.ValueCallback<android.net.Uri[]> callback,FileChooserParams params){
+                if(!readerPage()||params.getMode()!=FileChooserParams.MODE_OPEN)return false;
+                if(imageChooser!=null)imageChooser.onReceiveValue(null);imageChooser=callback;chooserServer=server;
+                Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT);picker.addCategory(Intent.CATEGORY_OPENABLE);picker.setType("image/*");picker.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"image/png","image/jpeg","image/webp"});
+                try{startActivityForResult(picker,71);}catch(Exception e){imageChooser.onReceiveValue(null);imageChooser=null;}return true;
+            }
+        });
         web.setWebViewClient(new WebViewClient(){
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,android.webkit.WebResourceError error){if(request.isForMainFrame())new AlertDialog.Builder(MainActivity.this).setTitle("책방 연결 확인").setMessage("실리 서버에 연결하지 못했어요.\n실리 실행 상태, 서버 주소·포트, 테일스케일 연결을 확인한 뒤 화면 새로고침을 눌러 주세요.\n앱 버전 0.8.0-test.1").setPositiveButton("확인",null).show();}
+
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest req){return !(!req.isForMainFrame() && isReaderFrame(req.getUrl().toString())) && !allowed(req.getUrl().toString());}
             @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest req){
                 if(allowed(req.getUrl().toString())||(!req.isForMainFrame()&&isReaderFrame(req.getUrl().toString())))return null;
@@ -79,6 +90,7 @@ public final class MainActivity extends Activity {
             }
             @Override public void onReceivedSslError(WebView view,SslErrorHandler handler,android.net.http.SslError error){handler.cancel();runOnUiThread(()->new AlertDialog.Builder(MainActivity.this).setMessage("서버 인증서를 확인할 수 없습니다. 주소와 HTTPS 설정을 확인해 주세요.").setPositiveButton("확인",null).show());}
             @Override public void onReceivedHttpError(WebView view,WebResourceRequest req,WebResourceResponse response){
+                if(req.isForMainFrame()&&response.getStatusCode()==404){new AlertDialog.Builder(MainActivity.this).setMessage("책방 주소가 없어요. 서버 플러그인 설치·활성화 후 실리를 재시작해 주세요.").setPositiveButton("확인",null).show();}
                 if(req.isForMainFrame()&&response.getStatusCode()==403&&!loginRedirect&&req.getUrl().getPath().startsWith(LIBRARY)){
                     loginRedirect=true;view.loadUrl(server+"/login");
                     new AlertDialog.Builder(MainActivity.this).setMessage("실리 로그인이 필요할 수 있어요. 로그인한 다음 위쪽 ‘홈화면’을 눌러 주세요. IP 허용 목록에 막힌 경우에는 실리 설정을 확인해 주세요.").setPositiveButton("확인",null).show();
@@ -118,9 +130,9 @@ public final class MainActivity extends Activity {
         themePending=true;final String source=server;
         // Read only a fixed theme identifier from our own top-level reader page.
         // No JavaScript interface or arbitrary native actions are exposed.
-        web.evaluateJavascript("JSON.stringify({theme:document.documentElement.dataset.theme||'light',focus:document.documentElement.dataset.focus==='true'})",value->{
-            themePending=false;if(!resumed||!source.equals(server)||!readerPage()||value==null||value.length()>160)return;
-            try{Object parsed=new org.json.JSONTokener(value).nextValue();if(parsed instanceof String){JSONObject state=new JSONObject((String)parsed);applyTheme(state.optString("theme"));toolbar.setVisibility(state.optBoolean("focus",false)?View.GONE:View.VISIBLE);}}catch(Exception ignored){}
+        web.evaluateJavascript("JSON.stringify({theme:document.documentElement.dataset.theme||'light',focus:document.documentElement.dataset.focus==='true',offline:window.BookshopOfflineStatus?.current()||null})",value->{
+            themePending=false;if(!resumed||!source.equals(server)||!readerPage()||value==null||value.length()>10000)return;
+            try{Object parsed=new org.json.JSONTokener(value).nextValue();if(parsed instanceof String){JSONObject state=new JSONObject((String)parsed);applyTheme(state.optString("theme"));toolbar.setVisibility(state.optBoolean("focus",false)?View.GONE:View.VISIBLE);JSONObject current=state.optJSONObject("offline");if(current!=null){JSONObject saved=OfflineVault.status(getApplicationContext(),source,current);web.evaluateJavascript("window.BookshopOfflineStatus?.update("+saved.toString()+")",null);}}}catch(Exception ignored){}
         });
     }
     private void applyTheme(String name){
@@ -134,7 +146,7 @@ public final class MainActivity extends Activity {
         prefs.edit().putString("toolbar-theme",name).apply();
     }
     private void toolMenu(){
-        new AlertDialog.Builder(this).setTitle("책방 도구").setItems(new String[]{"테마·글꼴·읽기 설정","현재 대화 오프라인 보관","오프라인 책장 열기"},(d,w)->{if(w==0)openTools();else if(w==1)confirmOfflineSave();else startActivity(new Intent(this,OfflineActivity.class));}).show();
+        new AlertDialog.Builder(this).setTitle("책방 도구").setItems(new String[]{"테마·글꼴·책장 설정","현재 대화 오프라인 보관 / 업데이트","오프라인 책장 열기","버전·연결 진단"},(d,w)->{if(w==0)openTools();else if(w==1)confirmOfflineSave();else if(w==2)startActivity(new Intent(this,OfflineActivity.class));else{openTools();if(readerPage())web.evaluateJavascript("document.getElementById('diagnose')?.click()",null);}}).show();
     }
     private void confirmOfflineSave(){
         if(exporting)return;
@@ -143,7 +155,7 @@ public final class MainActivity extends Activity {
         if(!k.isDeviceSecure()){new AlertDialog.Builder(this).setMessage("폰에 화면 잠금(PIN·패턴·비밀번호)을 설정한 뒤 사용할 수 있어요.").setPositiveButton("확인",null).show();return;}
         new AlertDialog.Builder(this).setTitle("이 대화를 폰에 보관할까요?").setMessage("저장된 번역·표시 정규식을 적용한 현재 대화를 암호화해서 보관해요. 서버의 삭제나 비밀번호 변경과 별개로 남으므로, 필요 없으면 오프라인 책장에서 삭제해 주세요.").setNegativeButton("취소",null).setPositiveButton("보관",(d,w)->{exportServer=server;Intent intent=k.createConfirmDeviceCredentialIntent("실리 책방","오프라인 보관을 위해 폰 잠금을 확인해 주세요.");if(intent!=null)startActivityForResult(intent,70);}).show();
     }
-    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==70&&result==RESULT_OK&&readerPage()&&server.equals(exportServer))startExport();}
+    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==71){if(imageChooser!=null){android.net.Uri uri=result==RESULT_OK&&data!=null&&readerPage()&&server.equals(chooserServer)?data.getData():null;if(uri!=null&&!"content".equals(uri.getScheme()))uri=null;imageChooser.onReceiveValue(uri==null?null:new android.net.Uri[]{uri});imageChooser=null;}return;}if(request==70&&result==RESULT_OK&&readerPage()&&server.equals(exportServer))startExport();}
     private boolean exportValid(int ticket){return exporting&&ticket==exportGeneration&&!isFinishing()&&exportServer.equals(server)&&readerPage();}
     private void startExport(){
         exporting=true;int ticket=++exportGeneration;android.widget.Toast.makeText(this,"대화를 보관하고 있어요. 완료할 때까지 앱을 열어 두세요.",android.widget.Toast.LENGTH_LONG).show();
@@ -184,5 +196,5 @@ public final class MainActivity extends Activity {
     @Override public void onBackPressed(){if(web.canGoBack())web.goBack();else super.onBackPressed();}
     @Override protected void onPause(){if(exporting){exporting=false;exportGeneration++;web.evaluateJavascript("window.BookshopOfflineExport?.clear()",null);}resumed=false;themeHandler.removeCallbacks(themeTick);super.onPause();web.onPause();CookieManager.getInstance().flush();}
     @Override protected void onResume(){super.onResume();if(web!=null)web.onResume();resumed=true;themeHandler.removeCallbacks(themeTick);themeHandler.post(themeTick);}
-    @Override protected void onDestroy(){resumed=false;themeHandler.removeCallbacksAndMessages(null);if(web!=null){root.removeView(web);web.destroy();}super.onDestroy();}
+    @Override protected void onDestroy(){resumed=false;if(imageChooser!=null){imageChooser.onReceiveValue(null);imageChooser=null;}themeHandler.removeCallbacksAndMessages(null);if(web!=null){root.removeView(web);web.destroy();}super.onDestroy();}
 }

@@ -5,11 +5,12 @@ const prefs={get(k,f){try{let value=localStorage.getItem('silly-bookshop:'+k);if
 const pendingPositions=new Map();
 let bookmarks=[],bookmarkIndex=0,bookmarkChat='',focusMode=false,recentChats=[];
 let people=[],catalogRequest=0,chats=[],active='',character='',revision='',start=0,total=0,epoch=0,loading=false,unlocked=false,restoring=false;
+let accountScope='',editingPerson='',pendingCover,coverRequest=0,aliasChat='',searchChat='',searchCursor=0,searchGeneration=0,searchTerm='';
 let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='0.7.1-test.1';
+const UI_VERSION='0.8.0-test.1';
 let rendererLoading=null;
 function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
 function ensureRenderer(){
@@ -56,7 +57,7 @@ function renderRecent(){
  const visible=recentChats.slice(0,Number($('recent-limit').value)),collapsed=prefs.get('recent-collapsed','false')==='true';
  $('recent').replaceChildren();$('recent-section').hidden=!visible.length;$('recent').hidden=collapsed;
  $('recent-toggle').setAttribute('aria-expanded',String(!collapsed));$('recent-count').textContent=String(visible.length);$('recent-chevron').textContent=collapsed?'⌄':'⌃';
- for(const c of visible){const b=node('button','recent-card');b.append(node('strong','',c.character+' · '+c.title),node('small','',(c.position.index+1)+'번째 메시지부터 이어 읽기'));b.onclick=()=>openChat(c.id);$('recent').append(b);}
+ for(const c of visible){const b=node('button','recent-card');b.append(node('strong','',c.character+' · '+chatTitle(c)),node('small','',(c.position.index+1)+'번째 메시지부터 이어 읽기'));b.onclick=()=>openChat(c.id);$('recent').append(b);}
 }
 for(const [id,allowed,fallback] of [['library-view',['list','cards','covers'],'list'],['recent-limit',['0','3','6','10'],'6']]){
  const stored=prefs.get(id,fallback);$(id).value=allowed.includes(stored)?stored:fallback;
@@ -127,11 +128,11 @@ $('reset-form').onsubmit=async e=>{
     catch(err){$('reset-message').textContent=err.message;}finally{b.disabled=false;}
 };
 function status(text){$('status').textContent=text;}
-function gate(message){window.BookshopOfflineExport.clear();setFocus(false);bookmarks=[];recentChats=[];$('recent').replaceChildren();$('bookmark-list').replaceChildren();$('bookmark-note').value='';closeDialogs();pendingPositions.clear();unlocked=false;epoch++;catalogRequest++;authEpoch++;avatarObserver?.disconnect();avatarQueue.splice(0).forEach(job=>job.resolve(null));avatarFailures.clear();$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;window.BookshopRich?.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';people=[];chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
+function gate(message){resetPrivateTools();window.BookshopOfflineExport.clear();setFocus(false);bookmarks=[];recentChats=[];$('recent').replaceChildren();$('bookmark-list').replaceChildren();$('bookmark-note').value='';closeDialogs();pendingPositions.clear();unlocked=false;epoch++;catalogRequest++;authEpoch++;avatarObserver?.disconnect();avatarQueue.splice(0).forEach(job=>job.resolve(null));avatarFailures.clear();$('library').hidden=true;$('gate').hidden=false;$('gate-status').textContent=message;clearTimeout(saveTimer);clearInterval(pollTimer);scrollDirty=false;window.BookshopRich?.clear(scroller);scroller.replaceChildren();$('characters').replaceChildren();avatarCache.clear();$('title').textContent='어떤 이야기를 펼쳐볼까요?';$('person').textContent='나만의 작은 책방';$('search').value='';people=[];chats=[];active='';character='';lastPosition=null;revision='';csrf='';}
 async function request(url,options={},timeout=20000){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
     try{const r=await fetch(url,{...options,signal:controller.signal});const bytes=await r.arrayBuffer();return {ok:r.ok,status:r.status,headers:r.headers,bytes};}
-    catch(e){if(e.name==='AbortError')throw new Error('서버 응답 시간이 초과됐어요. 서버 연결을 확인하고 다시 시도해 주세요.');throw e;}
+    catch(e){if(e.name==='AbortError')throw new Error('서버 응답 시간이 초과됐어요. 실리 실행 상태와 테일스케일 연결을 확인해 주세요.');throw new Error('서버에 연결하지 못했어요. 실리가 켜져 있는지, 서버 주소와 테일스케일 연결이 맞는지 확인해 주세요.');}
     finally{clearTimeout(timer);}
 }
 async function api(route,body,keepalive=false){
@@ -142,7 +143,7 @@ async function api(route,body,keepalive=false){
         Object.assign(options,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,'X-Silly-Request':'1'},body:JSON.stringify(body),keepalive});
     }
     const response=await request(base+route,options,route.startsWith('/offline?')?90000:20000);
-    let data;try{data=JSON.parse(new TextDecoder().decode(response.bytes));}catch{throw new Error('실리 로그인 화면으로 이동했거나 서버가 잘못된 응답을 보냈어요.');}
+    let data;try{data=JSON.parse(new TextDecoder().decode(response.bytes));}catch{throw new Error(response.status===404?'책방 플러그인 주소를 찾지 못했어요. 서버 플러그인 설치·활성화 후 실리를 재시작해 주세요.':response.status===401||response.status===403?'실리 로그인 또는 접근 허용이 필요해요. 실리 로그인 화면과 IP 허용 설정을 확인해 주세요.':'실리 로그인 화면이거나 JSON 응답이 아니에요. 실리 로그인 후 홈화면을 열어 주세요.');}
     if(!response.ok){if(response.status===401&&route!=='/login'&&requestAuthEpoch===authEpoch)gate('다시 책방 잠금을 풀어 주세요.');if(response.status===403)csrf='';throw new Error(data.error||'요청에 실패했습니다.');}
     return data;
 }
@@ -152,7 +153,7 @@ function pumpAvatars(){
         (async()=>{let url=null;
             try{for(let attempt=0;attempt<3;attempt++){
                 if(!unlocked||job.session!==authEpoch)break;
-                const response=await request(base+'/avatar?name='+encodeURIComponent(job.file),{credentials:'same-origin',cache:'no-store'},12000);
+                const cover=job.file.startsWith('cover:')?job.file.slice(6).split('|'):null;const response=await request(base+(cover?'/cover?key='+encodeURIComponent(cover.slice(0,-1).join('|'))+'&v='+cover.at(-1):'/avatar?name='+encodeURIComponent(job.file)),{credentials:'same-origin',cache:'no-store'},12000);
                 if(response.status===429&&attempt<2){await new Promise(r=>setTimeout(r,500*(attempt+1)));continue;}
                 if(!response.ok)throw new Error('사진 요청 실패 ('+response.status+')');
                 const blob=new Blob([response.bytes],{type:'image/png'});
@@ -210,9 +211,10 @@ $('fold').onclick=()=>fold(!$('library').classList.contains('collapsed'));
 function renderLists(){
     $('characters').querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
     const query=$('search').value.trim().toLowerCase(),groups=new Map();
-    for(const person of people){
+    const ordered=[...people].sort((a,b)=>Number(b.favorite)-Number(a.favorite)||($('shelf-sort').value==='name'?a.character.localeCompare(b.character,'ko'):$('shelf-sort').value==='read'?(b.lastRead||0)-(a.lastRead||0):(b.modified||0)-(a.modified||0))||a.character.localeCompare(b.character,'ko'));
+    for(const person of ordered){
         const own=chats.filter(c=>(c.characterKey||c.character)===person.key);
-        const list=person.character.toLowerCase().includes(query)?own:own.filter(c=>c.title.toLowerCase().includes(query));
+        const list=person.character.toLowerCase().includes(query)?own:own.filter(c=>(chatTitle(c)+' '+c.title).toLowerCase().includes(query));
         if(!query||person.character.toLowerCase().includes(query)||list.length)groups.set(person.key,{person,list});
     }
     const view=$('library-view').value,columns=view==='covers'?3:2,entries=[...groups];
@@ -222,14 +224,14 @@ function renderLists(){
         const name=person.character,section=node('section','character-group'),b=node('button','character');
         const index=n++,expanded=key===character,id='threads-'+index;b.id='character-'+index;
         b.setAttribute('aria-expanded',String(expanded));b.setAttribute('aria-controls',id);b.setAttribute('aria-pressed',String(expanded));
-        b.append(avatar(name,person.avatar));
+        b.append(avatar(name,view!=='list'&&person.cover?'cover:'+key+'|'+person.cover:person.avatar));
         const caption=view==='list'?b:node('span','character-caption');
-        caption.append(node('span','character-name',name),node('small','',String(list.length)+(view==='list'?'':'개 대화')),node('span','chevron',expanded?'⌃':'⌄'));
+        caption.append(node('span','character-name',(person.favorite?'★ ':'')+name),node('small','',String(list.length)+(view==='list'?'':'개 대화')),node('span','chevron',expanded?'⌃':'⌄'));
         if(view!=='list'){b.append(caption);b.title=name;}
         b.onclick=()=>{character=character===key?'':key;prefs.set('character',character);renderLists();$(b.id)?.focus({preventScroll:true});};section.append(b);
         let threads;
-        if(expanded){threads=node('nav','threads');threads.id=id;threads.setAttribute('aria-label',name+' 대화 목록');
-            for(const c of list){const t=node('button','thread');t.setAttribute('aria-pressed',String(active===c.id));t.append(node('strong','',c.title),node('small','',new Date(c.modified).toLocaleDateString('ko-KR')));t.onclick=()=>openChat(c.id);threads.append(t);}
+        if(expanded){threads=node('nav','threads');threads.id=id;threads.setAttribute('aria-label',name+' 대화 목록');const manage=node('button','person-manage','☆ 즐겨찾기 · 표지 설정');manage.onclick=()=>managePerson(key);threads.append(manage);
+            for(const c of list){const t=node('button','thread');t.setAttribute('aria-pressed',String(active===c.id));t.append(node('strong','',chatTitle(c)),node('small','',new Date(c.modified).toLocaleDateString('ko-KR')));t.onclick=()=>openChat(c.id);threads.append(t);}
             if(!list.length)threads.append(node('p','notice','아직 저장된 대화가 없어요.'));
         }
         if(view==='list'){if(threads)section.append(threads);$('characters').append(section);}
@@ -242,6 +244,7 @@ function renderLists(){
     if(!groups.size)$('characters').append(node('p','notice',query?'검색 결과가 없어요.':'현재 실리에 등록된 캐릭터가 없어요.'));
 }
 function clearSelection(message){
+    $('offline-state').hidden=true;
     epoch++;loading=false;clearTimeout(saveTimer);scrollDirty=false;
     scroller.querySelectorAll('.avatar').forEach(el=>avatarObserver?.unobserve(el));
     window.BookshopRich?.clear(scroller);scroller.replaceChildren(node('p','notice',message));
@@ -259,7 +262,7 @@ async function catalog(){
     const ticket=++catalogRequest,data=await api('/catalog');
     if(!unlocked||ticket!==catalogRequest)return false;
     if(!Array.isArray(data.characters))throw new Error('목록 갱신을 위해 서버 플러그인을 업데이트하고 재시작해 주세요.');
-    chats=data.chats;people=data.characters;recentChats=data.recent||[];renderRecent();
+    chats=data.chats;people=data.characters;accountScope=data.scope||'';if(active){const current=chats.find(x=>x.id===active);if(current)$('title').textContent=chatTitle(current);}recentChats=data.recent||[];renderRecent();
     if(active&&!chats.some(c=>c.id===active))clearSelection('이 대화나 캐릭터는 현재 실리 목록에서 없어졌어요. 다른 대화를 골라 주세요.');
     if(character&&!people.some(p=>p.key===character))character='';
     renderLists();return true;
@@ -302,8 +305,8 @@ function renderChat(data,pos){
 }
 async function openChat(id,requestedStart){
     const saving=save(),ticket=++epoch;loading=true;
-    active=id;revision='';lastPosition=null;scrollDirty=false;
-    const meta=chats.find(c=>c.id===id);if(meta){character=meta.characterKey||meta.character;$('person').textContent=meta.character+'와 나눈 대화';$('title').textContent=meta.title;}
+    $('offline-state').hidden=true;active=id;revision='';lastPosition=null;scrollDirty=false;
+    const meta=chats.find(c=>c.id===id);if(meta){character=meta.characterKey||meta.character;$('person').textContent=meta.character+'와 나눈 대화';$('title').textContent=chatTitle(meta);}
     prefs.set('last',id);prefs.set('view','chat');prefs.set('character',character);renderLists();
     if(matchMedia('(max-width:640px)').matches)fold(true);
     window.BookshopRich?.clear(scroller);scroller.replaceChildren(node('p','notice','대화를 불러오고 있어요…'));status('대화 불러오는 중');
@@ -363,6 +366,53 @@ scroller.addEventListener('scroll',()=>{if(restoring||loading||!active)return;sc
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save(true);else if(unlocked){if(active&&!scrollDirty&&prefs.get('view','home')==='chat')openChat(active);else poll();}});
 window.addEventListener('pagehide',()=>save(true));
 setInterval(()=>{if(unlocked&&!document.hidden)catalog().catch(e=>status(e.message));},30000);
+// Bookshop-only personalization: metadata stays in this Silly account.
+const chatTitle=c=>c.alias||c.title;
+const sortModes=['updated','name','read'];
+$('shelf-sort').value=sortModes.includes(prefs.get('shelf-sort','updated'))?prefs.get('shelf-sort','updated'):'updated';
+$('shelf-sort').onchange=()=>{prefs.set('shelf-sort',$('shelf-sort').value);renderLists();};
+function managePerson(key){
+ const p=people.find(x=>x.key===key);if(!p)return;coverRequest++;editingPerson=key;pendingCover=undefined;
+ $('person-settings-title').textContent=p.character+'의 책장';$('favorite-check').checked=!!p.favorite;$('cover-file').value='';$('person-settings-status').textContent='';$('cover-preview').replaceChildren(avatar(p.character,p.cover?'cover:'+key+'|'+p.cover:p.avatar));$('cover-save').disabled=true;$('cover-remove').disabled=!p.cover;$('person-settings').showModal();
+}
+$('favorite-check').onchange=async()=>{const key=editingPerson,value=$('favorite-check').checked;$('favorite-check').disabled=true;try{await api('/shelf',{kind:'favorite',key,value});if(!unlocked)return;await catalog();$('person-settings-status').textContent=value?'즐겨찾기에 고정했어요.':'즐겨찾기를 해제했어요.';}catch(e){$('favorite-check').checked=!value;$('person-settings-status').textContent=e.message;}finally{$('favorite-check').disabled=false;}};
+$('cover-file').onchange=async()=>{
+ const file=$('cover-file').files[0],key=editingPerson,ticket=++coverRequest;pendingCover=undefined;$('cover-save').disabled=true;if(!file)return;
+ try{
+  if(file.size>10*1024*1024||!['image/png','image/jpeg','image/webp'].includes(file.type))throw new Error('10MB 이하 PNG·JPG·WebP 사진을 골라 주세요.');
+  $('person-settings-status').textContent='표지를 준비하고 있어요…';
+  const img=await createImageBitmap(file);if(img.width*img.height>40000000){img.close();throw new Error('사진 해상도가 너무 커요. 작은 사진을 골라 주세요.');}
+  const canvas=document.createElement('canvas');let scale=Math.min(1,512/Math.max(img.width,img.height));canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);img.close();let data=canvas.toDataURL('image/png');
+  if(data.length>690000){const smaller=document.createElement('canvas');smaller.width=Math.round(canvas.width*.65);smaller.height=Math.round(canvas.height*.65);smaller.getContext('2d').drawImage(canvas,0,0,smaller.width,smaller.height);data=smaller.toDataURL('image/png');}
+  if(data.length>690000)throw new Error('표지가 너무 커요. 더 작은 사진을 골라 주세요.');
+  if(!unlocked||key!==editingPerson||ticket!==coverRequest||!$('person-settings').open)return;
+  pendingCover=data;const preview=node('img');preview.alt='선택한 표지';preview.src=data;$('cover-preview').replaceChildren(preview);$('cover-save').disabled=false;$('person-settings-status').textContent='저장을 누르면 책방 표지에만 적용돼요.';
+ }catch(e){if(ticket===coverRequest)$('person-settings-status').textContent=e.message;}
+};
+async function saveCover(remove){const key=editingPerson;if(!remove&&!pendingCover)return;const image=remove?null:pendingCover;$('cover-save').disabled=$('cover-remove').disabled=true;
+ try{await api('/cover',{key,image});if(!unlocked)return;await catalog();pendingCover=undefined;$('person-settings').close();}catch(e){$('person-settings-status').textContent=e.message;}finally{$('cover-save').disabled=!pendingCover;$('cover-remove').disabled=!people.find(x=>x.key===key)?.cover;}}
+$('cover-save').onclick=()=>saveCover(false);$('cover-remove').onclick=()=>saveCover(true);
+$('person-settings').addEventListener('close',()=>{coverRequest++;pendingCover=undefined;$('cover-preview').replaceChildren();$('cover-file').value='';});
+$('alias-open').onclick=()=>{const c=chats.find(x=>x.id===active);if(!c){status('먼저 대화를 골라 주세요.');return;}aliasChat=active;$('alias-value').value=c.alias||'';$('alias-original').textContent='원래 이름: '+c.title;$('alias-status').textContent='';$('alias-dialog').showModal();};
+$('alias-form').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('/shelf',{kind:'alias',id:aliasChat,value:$('alias-value').value});if(!unlocked)return;await catalog();$('alias-dialog').close();}catch(err){$('alias-status').textContent=err.message;}finally{b.disabled=false;}};
+$('chat-search-open').onclick=()=>{if(!active){status('먼저 대화를 골라 주세요.');return;}searchChat=active;searchGeneration++;searchCursor=0;$('chat-search-results').replaceChildren();$('chat-search-status').textContent='숨김 설정을 적용한 본문과 저장된 번역에서 찾아요.';$('chat-search-more').hidden=true;$('chat-search-dialog').showModal();};
+async function runSearch(more){
+ const query=$('chat-search-query').value.trim();if(!query)return;const id=searchChat,ticket=++searchGeneration;if(!more){searchCursor=0;$('chat-search-results').replaceChildren();searchTerm=query;}else if(query!==searchTerm)return runSearch(false);
+ $('chat-search-submit').disabled=$('chat-search-more').disabled=true;$('chat-search-status').textContent='대화에서 찾고 있어요…';
+ try{const data=await api('/search?id='+encodeURIComponent(id)+'&q='+encodeURIComponent(query)+'&cursor='+searchCursor);if(ticket!==searchGeneration||!unlocked||!$('chat-search-dialog').open)return;
+  for(const r of data.results){const b=node('button','search-result');b.append(node('strong','',(r.index+1)+'번째 · '+r.name+' · '+r.label),node('span','',r.snippet));b.onclick=async()=>{closeDialogs();await openChat(id,r.index);scroller.querySelector('[data-index="'+r.index+'"]')?.classList.add('search-hit');};$('chat-search-results').append(b);}
+  searchCursor=data.next;$('chat-search-more').hidden=data.next===null;$('chat-search-status').textContent=$('chat-search-results').children.length+'개 찾음 · '+data.scanned+' / '+data.total+'개 메시지 검색'+(data.skipped?' · 표시 오류 '+data.skipped+'개 제외':'')+(data.next!==null?' · 아래에서 계속 검색할 수 있어요.':'');
+ }catch(e){if(ticket===searchGeneration)$('chat-search-status').textContent=e.message;}finally{if(ticket===searchGeneration)$('chat-search-submit').disabled=$('chat-search-more').disabled=false;}
+}
+$('chat-search-form').onsubmit=e=>{e.preventDefault();runSearch(false);};$('chat-search-more').onclick=()=>runSearch(true);$('chat-search-dialog').addEventListener('close',()=>{searchGeneration++;$('chat-search-submit').disabled=$('chat-search-more').disabled=false;});
+window.BookshopOfflineStatus={current(){return unlocked&&active&&revision&&accountScope?{id:active,scope:accountScope,revision}:null;},update(value){if(!unlocked||value.id!==active||value.scope!==accountScope)return;const e=$('offline-state');e.hidden=false;e.textContent=value.exists?'오프라인 보관됨 · '+new Date(value.created).toLocaleString('ko-KR')+(value.revision===revision?'':' · 보관본 업데이트 필요'):'이 기기에 보관되지 않은 대화';e.title='상단 도구 → 현재 대화 오프라인 보관에서 저장하거나 업데이트해요.';}};
+function resetPrivateTools(){accountScope='';searchGeneration++;coverRequest++;pendingCover=undefined;editingPerson='';aliasChat='';searchChat='';$('chat-search-results').replaceChildren();$('chat-search-query').value='';$('alias-value').value='';$('alias-original').textContent='';$('cover-preview').replaceChildren();$('person-settings-title').textContent='캐릭터 책장';$('offline-state').hidden=true;}
+async function diagnose(){
+ const button=$('diagnose');button.disabled=true;const appVersion=navigator.userAgent.match(/SillyBookshop\/([\d.]+)/)?.[1];$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n연결 확인 중…';
+ try{const s=await api('/status');let note=!s.configured?'책방 비밀번호 설정이 필요해요.':!s.authenticated?'실리 연결 정상 · 책방 비밀번호로 잠금을 풀어 주세요.':'실리·책방 연결 정상';if(s.protocol!==2)note+='\n서버 플러그인을 업데이트해 주세요.';else if(s.version!==UI_VERSION)note+='\n서버와 화면 버전이 달라요. 화면 새로고침 후 다시 확인해 주세요.';if(appVersion&&appVersion.split('.').map(Number).reduce((a,n)=>a*1000+n,0)<8000)note+='\n새 기능을 모두 쓰려면 APK 0.8.0 이상으로 업데이트해 주세요.';$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n서버 '+s.version+'\n'+note;}catch(e){$('diagnostic-result').textContent='앱 '+(appVersion||'웹 브라우저')+' · 화면 '+UI_VERSION+'\n'+e.message;}finally{button.disabled=false;}
+}
+$('diagnose').onclick=diagnose;$('gate-diagnose').onclick=()=>{openTools();diagnose();};
+
 window.BookshopReady=true;
-(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.7.1';if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}routeIntent();})();
+(async()=>{try{const state=await api('/status');$('app-version').textContent='서버 '+state.version+' · 화면 0.8.0';const nativeVersion=navigator.userAgent.match(/SillyBookshop\/([\d.]+)/)?.[1];const mismatch=state.protocol!==2?'서버 플러그인 업데이트가 필요해요.':state.version!==UI_VERSION?'서버·화면 버전이 달라요. 화면 새로고침 후 연결 진단을 확인해 주세요.':nativeVersion&&nativeVersion.split('.').map(Number).reduce((a,n)=>a*1000+n,0)<8000?'표지 선택·보관 상태 기능에는 APK 0.8.0 이상이 필요해요.':'';$('compatibility-note').textContent=mismatch;$('compatibility-note').hidden=!mismatch;if(state.authenticated)await enter();else $('gate-status').textContent=state.configured?'비밀번호를 입력하면 이야기가 열려요.':'먼저 터먹스에서 setup.cjs로 책방 비밀번호를 설정해 주세요.';}catch(e){$('gate-status').textContent=e.message+'\n실리 로그인 후 이 주소로 돌아와 주세요.';}routeIntent();})();
 })();

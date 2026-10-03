@@ -19,9 +19,10 @@ server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(
 const origin='http://127.0.0.1:'+server.address().port,base=origin+'/api/plugins/silly-bookshop';
 const post=(route,data,extra={})=>fetch(base+route,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','X-Silly-Request':'1',...extra},body:JSON.stringify(data)});
 assert.equal((await fetch(base+'/catalog')).status,401);
-for(const route of ['/bookmarks?id=x','/offline?id=x'])assert.equal((await fetch(base+route)).status,401);
+for(const route of ['/bookmarks?id=x','/offline?id=x','/cover?key=x','/search?id=x&q=test'])assert.equal((await fetch(base+route)).status,401);
 assert.equal((await post('/bookmarks',{id:'x',index:0,note:'',remove:false})).status,401);
 assert.equal((await post('/visit',{id:'x'})).status,401);
+for(const route of ['/shelf','/cover']){assert.equal((await post(route,{})).status,401);}
 assert.equal((await fetch(base+'/status',{headers:{'x-fixture-user':'none'}})).status,403);
 assert.equal((await fetch(base+'/catalog',{headers:{'x-fixture-user':'unconfigured'}})).status,401);
 assert.equal((await post('/login',{password:'test-password-123'},{'x-fixture-user':'unconfigured'})).status,409);
@@ -32,8 +33,9 @@ const login=await post('/login',{password:'test-password-123'});assert.equal(log
 const rawCookie=login.headers.get('set-cookie'),cookie=rawCookie.split(';')[0];assert.match(rawCookie,/HttpOnly/);assert.match(rawCookie,/SameSite=Strict/);assert.match(rawCookie,/Path=\/api\/plugins\/silly-bookshop/);
 const catalog=await fetch(base+'/catalog',{headers:{Cookie:cookie}});assert.equal(catalog.status,200);assert.equal(catalog.headers.get('access-control-allow-origin'),null);assert.equal(catalog.headers.get('x-frame-options'),'DENY');assert.equal(catalog.headers.get('cache-control'),'no-store');
 assert.equal((await fetch(base+'/catalog',{headers:{Cookie:cookie,'x-fixture-user':'b'}})).status,401);
-for(const route of ['/bookmarks?id=x','/offline?id=x'])assert.equal((await fetch(base+route,{headers:{Cookie:cookie,'x-fixture-user':'b'}})).status,401);
+for(const route of ['/bookmarks?id=x','/offline?id=x','/cover?key=x','/search?id=x&q=test'])assert.equal((await fetch(base+route,{headers:{Cookie:cookie,'x-fixture-user':'b'}})).status,401);
 assert.equal((await post('/bookmarks',{id:'x',index:0,note:'',remove:false},{Cookie:cookie,Origin:'https://evil.invalid'})).status,403);
+for(const route of ['/shelf','/cover'])assert.equal((await post(route,{},{Cookie:cookie,Origin:'https://evil.invalid'})).status,403);
 const otherHostStatus=await new Promise((resolve,reject)=>{require('node:http').get(base+'/catalog',{headers:{Cookie:cookie,Host:'other.invalid'}},res=>{res.resume();resolve(res.statusCode);}).on('error',reject);});assert.equal(otherHostStatus,401);
 assert.equal((await fetch(base+'/catalog',{headers:{Cookie:cookie,Origin:'https://evil.invalid'}})).status,403);
 const id=c.encode(['group','chat.jsonl']);const read=await fetch(base+'/chat?id='+id,{headers:{Cookie:cookie}});const data=await read.json();assert.equal(data.messages[0].content,'private-a');assert.equal(data.messages[0].text,undefined);assert.equal(data.displayPolicy,'saved-display-v1');
