@@ -1,7 +1,8 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const c=require('./core.cjs'),security=require('./security.cjs'),capture=require('./capture.cjs'),display=require('./display.cjs'),account=require('./account.cjs'),reading=require('./reading.cjs'),shelf=require('./shelf.cjs'),search=require('./search.cjs');
-const BASE='/api/plugins/silly-bookshop',VERSION='1.0.0';
+const BASE='/api/plugins/silly-bookshop',VERSION='1.0.1-test.1';
+const localHttps=require('./local-https.cjs');
 const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{
     if(res.headersSent)return next(e);
     if(e.status===429)res.set('Retry-After','60');
@@ -90,6 +91,8 @@ async function init(router){
         apiRate(cookieKey(req));session.expires=Math.min(Date.now()+30*60000,session.absolute);next();
     }));
     router.post('/logout',(req,res)=>{sessions.delete(cookieKey(req));setCookie(req,res,'',0);res.json({ok:true});});
+    router.get('/https-setup',(req,res)=>res.json(localHttps.status()));
+    router.get('/https-certificate',(req,res)=>{const conf=localHttps.getCurrent();if(!conf)return res.status(409).json({error:'서버에서 HTTPS 준비 명령을 먼저 실행해 주세요.'});res.set({'Content-Type':'application/x-apple-aspen-config','Content-Disposition':'attachment; filename="Silly-Bookshop.mobileconfig"'});res.send(localHttps.profile(conf));});
     router.get('/account',wrap(async(req,res)=>res.json({recoveryConfigured:!!(await c.authConfig(req.user.directories.root))?.recoveryHash})));
     for(const mode of ['password','recovery-code'])router.post('/account/'+mode,wrap(async(req,res)=>{
         accountLimit(req);
@@ -136,5 +139,6 @@ async function init(router){
         res.json(await c.position(req.user.directories.root,req.body.id,req.body.position));
     }));
     console.log('[실리 책방 '+VERSION+'] '+BASE+'/');
+    await localHttps.init();
 }
-module.exports={init,info:{id:'silly-bookshop',name:'실리 책방',description:'나만의 읽기 전용 채팅 책방'}};
+module.exports={init,exit:localHttps.stop,info:{id:'silly-bookshop',name:'실리 책방',description:'나만의 읽기 전용 채팅 책방'}};

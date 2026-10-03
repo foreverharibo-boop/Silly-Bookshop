@@ -1,0 +1,37 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),http=require('node:http'),https=require('node:https'),tls=require('node:tls'),crypto=require('node:crypto');
+const bridge=require('../local-https.cjs'),{configure}=require('../../scripts/setup-https.cjs');
+test('HTTPS settings accept only tailnet IPv4 and distinct nonprivileged ports',()=>{
+ const c={schema:1,id:'a'.repeat(32),ip:'100.64.0.10',port:8443,upstreamPort:8001};assert.equal(bridge.validate(c),c);
+ for(const ip of ['0.0.0.0','127.0.0.1','192.168.1.2','8.8.8.8','100.63.0.1','100.128.0.1','100.64.0.10;evil'])assert.throws(()=>bridge.validate({...c,ip}));
+ for(const port of [443,8001,65536,NaN])assert.throws(()=>bridge.validate({...c,port}));
+ for(const route of ['/api/secrets/view','/api/chats/save','/api/characters/delete','/api/users/recover-step2'])assert.equal(bridge.routeAllowed('POST',route),false);
+});
+test('unique certificates, exact IP TLS, deleted signing key, scoped proxy and protected auth',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'bookshop-https-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+ const seen=[];const upstream=http.createServer((req,res)=>{seen.push({url:req.url,headers:req.headers});if(req.url.endsWith('/catalog')&&!req.headers.cookie){res.writeHead(401);return res.end('locked');}if(req.url.endsWith('/login')&&req.headers['x-csrf-token']!=='existing-csrf'){res.writeHead(403);return res.end('csrf');}res.setHeader('Set-Cookie','silly_bookshop=fixture; HttpOnly; SameSite=Strict');res.setHeader('Content-Type','application/json');res.end(JSON.stringify({ok:true}));});
+ await new Promise(r=>upstream.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>upstream.close(r)));
+ const info=await configure({ip:'100.64.0.10',upstreamPort:upstream.address().port,port:8443,dir});const c=await bridge.load(dir);
+ assert.equal(info.url,'https://100.64.0.10:8443/api/plugins/silly-bookshop/');
+ await assert.rejects(fs.access(path.join(dir,c.id,'ca.key')),{code:'ENOENT'});
+ assert.equal((await fs.stat(path.join(dir,c.id,'server.key'))).mode&0o777,0o600);
+ const leaf=new crypto.X509Certificate(c.cert);assert.equal(leaf.ca,false);assert.equal(leaf.checkIP(c.ip),c.ip);assert.equal(leaf.checkIP('100.64.0.11'),undefined);
+ assert.ok(new Date(leaf.validTo)-Date.now()<366*86400000);
+ const profile=bridge.profile(c);assert.ok(profile.includes('com.apple.security.root'));assert.ok(!profile.includes('PRIVATE KEY'));assert.ok(!profile.includes('com.apple.mdm'));
+ const listener=https.createServer({key:c.key,cert:c.cert,minVersion:'TLSv1.2'},bridge.handler(c));await new Promise(r=>listener.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>listener.close(r)));
+ const fetch=(url,opts={})=>new Promise((resolve,reject)=>{const req=https.request({host:'127.0.0.1',port:listener.address().port,ca:c.root,checkServerIdentity:(_,cert)=>tls.checkServerIdentity(c.ip,cert),path:url,method:opts.method||'GET',headers:{host:c.ip+':8443',...opts.headers}},res=>{let data='';res.on('data',b=>data+=b);res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,data}));});req.on('error',reject);req.end(opts.body||'');});
+ assert.equal((await fetch(bridge.BASE+'/catalog')).status,401);
+ assert.equal((await fetch(bridge.BASE+'/login',{method:'POST',headers:{origin:'https://'+c.ip+':8443'}})).status,403);
+ const success=await fetch(bridge.BASE+'/login',{method:'POST',headers:{origin:'https://'+c.ip+':8443','x-csrf-token':'existing-csrf','x-silly-request':'1','x-forwarded-for':'8.8.8.8','x-forwarded-proto':'https','content-type':'application/json'},body:'{"password":"fixture"}'});
+ assert.equal(success.status,200);assert.match(success.headers['set-cookie'][0],/; Secure$/);const last=seen.at(-1);assert.equal(last.headers.origin,'http://'+c.ip+':8443');assert.equal(last.headers['x-csrf-token'],'existing-csrf');assert.equal(last.headers['x-forwarded-for'],undefined);
+ for(const headers of [{origin:'https://evil.invalid'},{origin:'null'},{'sec-fetch-site':'cross-site'}])assert.equal((await fetch(bridge.BASE+'/login',{method:'POST',headers})).status,403);
+ assert.equal((await fetch(bridge.BASE+'/login',{method:'POST'})).status,403);
+ assert.equal((await fetch(bridge.BASE+'/catalog',{headers:{host:'evil.invalid'}})).status,421);
+ for(const url of ['/api/secrets/view','/api/chats/save','/api/users/recover-step1'])assert.equal((await fetch(url)).status,404);
+ for(const url of [bridge.BASE+'/../secrets/view',bridge.BASE+'/%2e%2e/secrets','//evil.invalid/'])assert.equal((await fetch(url)).status,400);
+ assert.equal((await fetch('/login')).status,200);
+ assert.equal((await fetch(bridge.BASE+'/catalog',{headers:{cookie:'silly_bookshop=fixture'}})).status,200);
+ await new Promise(r=>upstream.close(r));assert.equal((await fetch(bridge.BASE+'/catalog')).status,503);
+ const otherDir=path.join(dir,'other');await configure({ip:c.ip,dir:otherDir});assert.notEqual((await bridge.load(otherDir)).fingerprint,c.fingerprint);
+});

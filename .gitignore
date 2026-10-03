@@ -1,6 +1,9 @@
 # Private data and signing material must never be committed.
 **/signing/
 **/.silly-bookshop/
+**/.silly-bookshop-https/
+**/*.mobileconfig
+**/*.cer
 **/auth.json
 **/reading.json
 **/settings.json

@@ -10,7 +10,7 @@ let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='1.0.0';
+const UI_VERSION='1.0.1-test.1';
 let rendererLoading=null;
 function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
 function ensureRenderer(){
@@ -112,6 +112,24 @@ async function openTools(){
     if(unlocked)try{const info=await api('/account');$('account-status').textContent=info.recoveryConfigured?'복구 코드가 설정되어 있어요. 잃어버렸다면 재발급해 주세요.':'아직 복구 코드가 없어요. 현재 비밀번호로 미리 발급해 두세요.';}catch(e){$('account-message').textContent=e.message;}
 }
 $('tools').onclick=openTools;
+$('https-setup-open').onclick=async()=>{
+ const box=$('https-setup-help');box.hidden=false;box.replaceChildren();
+ const line=text=>{const p=document.createElement('p');p.className='help';p.textContent=text;box.append(p);return p;};
+ if(window.isSecureContext){line('현재 주소는 오프라인 준비가 가능한 보안 연결이에요. 아이폰은 Safari 공유 → 홈 화면에 추가 후, 새 책방 아이콘으로 들어가서 대화를 보관해 주세요.');line('대화 보관 완료 후 서버를 끄고 책방 아이콘을 다시 열어, 저장한 대화가 보이는지 확인해 주세요.');return;}
+ line('처음 한 번, 서버와 아이폰을 준비해요. 설정이 끝나면 같은 책방 아이콘에서 서버 없이 보관본을 읽을 수 있어요.');
+ try{const info=await api('/https-setup');if(!info.configured){line('① 서버의 터먹스에서 pkg install openssl-tool 실행 → 책방 폴더에서 node scripts/setup-https.cjs 실행 → 서버 폰의 Tailscale IP와 기존 실리 포트 입력 → 실리 재시작. 그다음 이 버튼을 다시 눌러 주세요.');return;}
+ if(!info.running){line(info.error||'HTTPS 입구가 아직 실행되지 않았어요. 테일스케일을 켜고 실리를 다시 시작해 주세요.');return;}
+ line('① 아래 인증서는 이 서버에서 직접 만든 것이에요. 기기의 인증서 신뢰 설정에 추가되므로, 본인 서버가 맞는지 확인하고 설치해 주세요. 터먹스에 나온 이름·SHA-256과 같아야 해요.');
+ line(info.certificateName+' · 만료 '+info.expires.slice(0,10));line('SHA-256: '+info.fingerprint).style.overflowWrap='anywhere';
+ const cert=document.createElement('a');cert.href=base+'/https-certificate';cert.textContent='아이폰용 인증서 받기';box.append(cert);
+ line('② Safari에서 다운로드 허용 → 아이폰 설정 → 일반 → VPN 및 기기 관리 → '+info.certificateName+' → 설치. 이 파일은 인증서만 넣으며 VPN이나 기기 관리 기능은 넣지 않아요.');
+ line('③ 설정 → 일반 → 정보 → 인증서 신뢰 설정 → '+info.certificateName+'의 전체 신뢰를 켜 주세요.');
+ line('④ 아래 새 주소를 Safari에서 열어 주세요. 경고가 뜬다면 계속 진행하지 말고 위의 설치·신뢰 설정과 인증서 만료일을 확인해 주세요.');
+ const link=document.createElement('a');link.href=info.url;link.textContent=info.url;link.style.overflowWrap='anywhere';box.append(link);
+ line('⑤ 새 주소에서 로그인 → Safari 공유 → 홈 화면에 추가 → 새 책방 아이콘으로 실행 → 원하는 대화 → 도구 → 현재 대화 보관 / 갱신. Safari 탭과 홈 화면 앱은 보관함이 다를 수 있으므로 꼭 아이콘으로 들어가서 저장해 주세요.');
+ line('⑥ 보관 완료 후 서버를 끄고 책방 아이콘을 다시 열어 확인해 주세요. 기기 저장 공간을 지우면 보관본도 사라질 수 있으니 중요한 대화는 암호화 백업도 받아 주세요.');
+ }catch(e){line(e.message);}
+};
 window.addEventListener('bookshop-open-tools',openTools);
 function routeIntent(){const intent=location.hash;if(intent==='#home')goHome();else if(intent==='#tools')openTools();else return;history.replaceState(null,'',location.pathname+location.search);}
 window.addEventListener('hashchange',routeIntent);
