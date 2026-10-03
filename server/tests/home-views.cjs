@@ -52,10 +52,31 @@ function png(red=40){
  await page.locator('#recent-toggle').click();assert.equal(await page.locator('#recent').isVisible(),true);await page.locator('.recent-card').first().click();await page.locator('.message').waitFor();
  await page.evaluate(()=>window.dispatchEvent(new Event('bookshop-home')));await page.locator('.character').first().waitFor();await setting('library-view','cards');await page.locator('.character').first().click();await page.locator('.thread').first().click();await page.locator('.message').waitFor();
 
- for(const ua of ['Mozilla/5.0 (Linux; Android 14) Mobile','SillyBookshop/0.9.5','Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)']){
-  const mobile=await browser.newPage({viewport:{width:1000,height:844},userAgent:ua});await mobile.goto('http://127.0.0.1:'+server.address().port+'/api/plugins/silly-bookshop/');await mobile.locator('#password').fill('test-password');await mobile.locator('#login-form .primary').click();await mobile.locator('.character').first().waitFor();
-  for(const [view,cols]of [['cards',2],['covers',3]]){await mobile.evaluate(()=>window.dispatchEvent(new Event('bookshop-open-tools')));await mobile.locator('#library-view').selectOption(view);await mobile.locator('[data-close=tools-dialog]').click();assert.equal(await mobile.locator('.shelf-row').first().locator('.character').count(),cols);assert.equal(await mobile.locator('#characters').getAttribute('data-dense'),'false');}
-  await mobile.close();
+ for(const device of [
+  {name:'iphone',ua:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile',tablet:false},
+  {name:'android-phone',ua:'Mozilla/5.0 (Linux; Android 14) Mobile SillyBookshop/0.9.5',tablet:false},
+  {name:'ipad-browser',ua:'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) Mobile',tablet:true},
+  {name:'ipad-installed',ua:'Mozilla/5.0 (Macintosh; Intel Mac OS X)',tablet:true,installed:true},
+  {name:'android-tablet',ua:'Mozilla/5.0 (Linux; Android 14) SillyBookshop/0.9.5',tablet:true}
+ ]){
+  const mobile=await browser.newPage({viewport:{width:768,height:1024},screen:device.tablet?{width:768,height:1024}:{width:390,height:844},userAgent:device.ua});
+  await mobile.addInitScript(({width,height})=>{Object.defineProperty(screen,'width',{get:()=>width});Object.defineProperty(screen,'height',{get:()=>height});},device.tablet?{width:768,height:1024}:{width:390,height:844});
+  if(device.installed)await mobile.addInitScript(()=>{Object.defineProperty(navigator,'standalone',{get:()=>true});Object.defineProperty(navigator,'platform',{get:()=> 'MacIntel'});Object.defineProperty(navigator,'maxTouchPoints',{get:()=>5});});
+  await mobile.goto('http://127.0.0.1:'+server.address().port+'/api/plugins/silly-bookshop/');await mobile.locator('#password').fill('test-password');await mobile.locator('#login-form .primary').click();await mobile.locator('.character').first().waitFor();
+  for(const [view,cols]of [['cards',2],['covers',3]]){
+   await mobile.evaluate(()=>window.dispatchEvent(new Event('bookshop-open-tools')));await mobile.locator('#library-view').selectOption(view);await mobile.locator('[data-close=tools-dialog]').click();
+   if(await mobile.locator('.character').first().getAttribute('aria-expanded')!=='true')await mobile.locator('.character').first().click();
+   const counts=[];
+   for(const width of [768,1024,500,768]){
+    await mobile.setViewportSize({width,height:width===1024?768:1024});await mobile.evaluate(async()=>{for(let i=0;i<3;i++)await new Promise(requestAnimationFrame);});
+    const dense=device.tablet&&width>640;assert.equal(await mobile.locator('#characters').getAttribute('data-dense'),String(dense));
+    const buttons=await mobile.locator('.shelf-row').first().locator('.character').evaluateAll(items=>items.map(e=>e.getBoundingClientRect().toJSON()));counts.push(buttons.length);
+    if(dense){assert.ok(buttons.length>cols);assert.ok(buttons[0].width<=(view==='covers'?110:140)+1);const r=await mobile.locator('#characters').boundingBox();assert.ok(Math.abs(buttons.at(-1).right-r.x-r.width)<=1);}else assert.equal(buttons.length,cols);
+    assert.equal(await mobile.locator('.character').first().getAttribute('aria-expanded'),'true');const threads=await mobile.locator('.threads').boundingBox();assert.ok(threads.y>=Math.max(...buttons.map(b=>b.bottom))-1);assert.equal(await mobile.locator('.threads .thread').count(),3);
+   }
+   if(device.tablet){assert.ok(counts[1]>counts[0]);assert.equal(counts[0],counts[3]);}
+  }
+  console.log('PASS: '+device.name+' responsive shelf, rotation/split view and expanded selection');await mobile.close();
  }
  assert.equal(await page.locator('#transcript').evaluate(el=>el.scrollTop),0);assert.equal(await page.locator('#characters img[onerror]').count(),0);assert.deepEqual(errors,[]);
  console.log('PASS: existing list preserved, cards/covers use real avatars, full-width expansion below selected row at 320/390/1280px, long/untrusted names and search, persisted view/collapse, recent 0/3/6/10 and navigation, first-message entry.');

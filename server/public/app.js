@@ -10,7 +10,7 @@ let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='0.9.5-test.4';
+const UI_VERSION='0.9.5-test.5';
 let rendererLoading=null;
 function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
 function ensureRenderer(){
@@ -228,7 +228,12 @@ async function save(keepalive=false){
 }
 function fold(value){const p=position(),mobile=compactNavigation();if(!active)value=false;if(mobile&&active&&!value)save();$('library').classList.toggle('collapsed',value);$('fold').setAttribute('aria-expanded',String(!value));$('fold').setAttribute('aria-label',value?'목록 펼치기':'목록 접기');prefs.set('collapsed',String(value));if(mobile&&active)prefs.set('view',value?'chat':'home');syncScreen();if(active&&p&&(!mobile||value))restore(p);}
 $('fold').onclick=()=>fold(!$('library').classList.contains('collapsed'));
-function denseShelf(){return !nativeApp&&!appleDevice&&!/Android|Mobile/i.test(navigator.userAgent)&&matchMedia('(min-width:641px)').matches;}
+function denseShelf(){
+    if(!matchMedia('(min-width:641px)').matches)return false;
+    const ua=navigator.userAgent,handheld=nativeApp||appleDevice||/Android|Mobile/i.test(ua);
+    const tablet=/iPad/.test(ua)||(appleDevice&&!/iPhone|iPod/.test(ua))||Math.min(screen.width,screen.height)>=600;
+    return !handheld||(!/iPhone|iPod/.test(ua)&&tablet);
+}
 function shelfColumns(view){
     if(!denseShelf())return view==='covers'?3:2;
     const size=view==='covers'?110:140,gap=view==='covers'?10:12;
