@@ -1,16 +1,16 @@
-@font-face{font-family:"Bookshop Pretendard";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/Pretendard-Regular.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Pretendard";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/Pretendard-Bold.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Plex";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/IBMPlexSansKR-Regular.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Plex";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/IBMPlexSansKR-Bold.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Dodum";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/GowunDodum-Regular.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Hahmlet";font-style:normal;font-weight:100 900;font-display:swap;src:url("./fonts/Hahmlet-Variable.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop RIDI";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/RIDIBatang-Regular.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Gothic";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/NanumGothic-Regular.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Gothic";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/NanumGothic-Bold.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Myeongjo";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/NanumMyeongjo-Regular.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Myeongjo";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/NanumMyeongjo-Bold.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Batang";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/GowunBatang-Regular.woff2?v=0.9.5-test.3") format("woff2")}
-@font-face{font-family:"Bookshop Batang";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/GowunBatang-Bold.woff2?v=0.9.5-test.3") format("woff2")}
+@font-face{font-family:"Bookshop Pretendard";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/Pretendard-Regular.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Pretendard";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/Pretendard-Bold.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Plex";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/IBMPlexSansKR-Regular.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Plex";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/IBMPlexSansKR-Bold.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Dodum";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/GowunDodum-Regular.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Hahmlet";font-style:normal;font-weight:100 900;font-display:swap;src:url("./fonts/Hahmlet-Variable.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop RIDI";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/RIDIBatang-Regular.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Gothic";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/NanumGothic-Regular.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Gothic";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/NanumGothic-Bold.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Myeongjo";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/NanumMyeongjo-Regular.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Myeongjo";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/NanumMyeongjo-Bold.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Batang";font-style:normal;font-weight:400;font-display:swap;src:url("./fonts/GowunBatang-Regular.woff2?v=0.9.5-test.4") format("woff2")}
+@font-face{font-family:"Bookshop Batang";font-style:normal;font-weight:700;font-display:swap;src:url("./fonts/GowunBatang-Bold.woff2?v=0.9.5-test.4") format("woff2")}
 :root{color-scheme:light;--paper:#fff;--side:#f7f8fa;--ink:#282e39;--muted:#7d8593;--line:#e8ebf0;--blue:#536ea2;--selected:#eaf0fa;--out:#eaf0fa;--shadow:#29354b0c;--reading-size:16px;font-family:system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--ink);background:var(--paper)}
 :root[data-theme=dark]{color-scheme:dark;--paper:#191c22;--side:#20242c;--ink:#e5e9f1;--muted:#9ba5b6;--line:#303744;--blue:#a9bfe8;--selected:#2c3a53;--out:#2c3a53;--shadow:#0002}
 *{box-sizing:border-box}body{margin:0}button,input{font:inherit}button{cursor:pointer;color:inherit;border:0;background:none}button:focus-visible,a:focus-visible{outline:2px solid var(--blue);outline-offset:3px}button:disabled{opacity:.5;cursor:wait}button{min-height:42px}input{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:10px;padding:13px;min-width:0}input:focus{outline:2px solid var(--blue);outline-offset:2px}[hidden]{display:none!important}h1,h2,p{margin:0}a{color:var(--blue)}.eyebrow{font-size:12px;color:var(--muted)}
@@ -100,3 +100,9 @@ select.choice-source{position:absolute!important;width:1px!important;height:1px!
 
 /* The home shelf already occupies the page; folding applies only while reading. */
 #library[data-screen=home] #fold{display:none}
+
+/* Draw the sidebar icon instead of using a platform-dependent font glyph. */
+#fold{align-items:center;justify-content:center;padding:0;flex:0 0 42px;width:42px;height:42px;line-height:1}
+#fold:not([hidden]){display:inline-flex}
+#fold svg{display:block;flex:none;width:20px;height:20px;pointer-events:none}
+html[data-navigation=pages] #fold,#library[data-screen=home] #fold{display:none}

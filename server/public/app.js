@@ -10,7 +10,7 @@ let saveTimer,pollTimer,csrf='',lastPosition=null,scrollDirty=false;
 const avatarCache=new Map(),avatarFailures=new Map(),avatarQueue=[];let avatarBusy=0,authEpoch=0;
 const scroller=$('transcript');
 let font=Number(prefs.get('font','16'));
-const UI_VERSION='0.9.5-test.3';
+const UI_VERSION='0.9.5-test.4';
 let rendererLoading=null;
 function rendererReady(){return window.BookshopRich?.version===UI_VERSION;}
 function ensureRenderer(){
