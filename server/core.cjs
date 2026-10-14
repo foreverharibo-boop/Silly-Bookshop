@@ -184,12 +184,14 @@ async function avatar(dirs,name){
     return Buffer.concat(chunks);
 }
 function parseChat(raw) {
+    // JSONL records also contain chat metadata, unused swipes and extension data.
+    // Bound the complete input, not individual records mistaken for display text.
+    if(Buffer.byteLength(raw,'utf8')>32*1024*1024)throw fail(413,'32MB를 넘는 대화는 현재 버전에서 열 수 없습니다.');
     const messages = [];
     let skipped = 0, metadata = {};
     const lines = raw.split('\n');
     for (let i=0;i<lines.length;i++) {
         if (!lines[i].trim()) continue;
-        if(lines[i].length>1024*1024)throw fail(413,'한 메시지가 지원 크기를 넘습니다.');
         let m;
         try { m = JSON.parse(lines[i]); }
         catch { if (i === lines.length-1) continue; skipped++; continue; }

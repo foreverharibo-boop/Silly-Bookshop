@@ -16,6 +16,23 @@ test('header skipped; selected swipe uses mes (manual edits retained); malformed
     const parsed=c.parseChat('{"chat_metadata":{}}\n'+JSON.stringify({name:'홍진',mes:'edited current',swipe_id:1,swipes:['old','before edit'],extra:{display_text:'번역'}})+'\nBROKEN\n'+JSON.stringify({name:'나',mes:'reply',is_user:true})+'\n{"partial":');
     assert.equal(parsed.messages.length,2);assert.equal(parsed.messages[0].text,'edited current');assert.equal(parsed.messages[0].displayText,'번역');assert.equal(parsed.messages[1].user,true);assert.equal(parsed.skipped,1);
 });
+test('large metadata and unused swipes do not block the selected messages or change reading indexes',async t=>{
+    const d=await fixture(t),file=path.join(d.chats,'캐릭터','큰 저장 정보.jsonl');
+    const padding='x'.repeat(1024*1024+1),selected={name:'캐릭터',mes:'edited current',swipe_id:1,extra:{display_text:'현재 번역'},send_date:'today'};
+    const original=[JSON.stringify({chat_metadata:{variables:{place:'책방'},extension_data:padding}}),JSON.stringify({...selected,swipes:[padding,'before edit'],extra:{...selected.extra,extension_data:padding}}),JSON.stringify({name:'나',mes:'reply',is_user:true})].join('\n');
+    await fs.writeFile(file,original);
+    const id=c.encode(['chat','캐릭터','큰 저장 정보.jsonl']);await c.position(d.root,id,{index:1,fraction:.4});
+    const parsed=c.parseChat(await c.readText(file,32*1024*1024));
+    assert.equal(parsed.metadata.variables.place,'책방');assert.equal(parsed.messages.length,2);assert.equal(parsed.skipped,0);
+    assert.deepEqual(parsed.messages.map(m=>m.index),[0,1]);assert.equal(parsed.messages[0].text,'edited current');assert.equal(parsed.messages[0].displayText,'현재 번역');
+    assert.equal(parsed.messages[0].sourceHash,c.messageHash(selected));assert.ok(!JSON.stringify(parsed.messages).includes(padding));
+    assert.equal((await c.position(d.root,id)).index,1);assert.equal((await c.position(d.root,id)).fraction,.4);assert.equal(await fs.readFile(file,'utf8'),original);
+});
+test('large current text is retained, while the complete chat remains bounded to 32 MiB',()=>{
+    const text='가'.repeat(1024*1024+1),parsed=c.parseChat(JSON.stringify({mes:text}));
+    assert.equal(parsed.messages[0].text,text);
+    assert.throws(()=>c.parseChat(JSON.stringify({chat_metadata:{data:'가'.repeat(Math.ceil(32*1024*1024/3))}})),{status:413,message:'32MB를 넘는 대화는 현재 버전에서 열 수 없습니다.'});
+});
 test('catalog includes characters/groups, excludes symlinks; source remains byte identical',async t=>{
     const d=await fixture(t),file=path.join(d.chats,'캐릭터','첫 대화.jsonl');const original='{"mes":"hello","name":"캐릭터"}\n';await fs.writeFile(file,original);
     await fs.writeFile(path.join(d.groupChats,'g1.jsonl'),original);await fs.writeFile(path.join(d.groups,'g.json'),JSON.stringify({name:'친구들',chat_id:'g1',chats:['g1']}));

@@ -23,6 +23,11 @@ test('reasoning excluded even without rules; empty translation stays empty; unsu
  assert.equal(worker.project(messages[0],conf).content,'hello ');assert.equal(worker.project(messages[1],conf).content,'');
  const view=worker.project(messages[0],{...conf,scripts:[rule('/hello/g','{{unsupported}}')]});assert.ok(view.error);assert.equal(view.content,undefined);assert.ok(!JSON.stringify(view).includes('SECRET'));
 });
+test('large stored metadata renders the selected translation with hidden content still excluded',async()=>{
+ const padding='PRIVATE_METADATA'.repeat(80000),raw=JSON.stringify({chat_metadata:{extension_data:padding}})+'\n'+JSON.stringify({name:'A',mes:'RAW_ONLY_SECRET',swipes:[padding],extra:{display_text:'<think>THINK_SECRET</think>번역 HIDDEN',extension_data:padding}});
+ const parsed=c.parseChat(raw),views=await display.render(parsed.messages,{common:[rule('/HIDDEN/g','')],cards:{},names:{}},parsed.metadata);
+ assert.equal(views[0].content,'번역 ');assert.ok(!JSON.stringify(views).includes('SECRET'));assert.ok(!JSON.stringify(views).includes('PRIVATE_METADATA'));assert.equal(views[0].index,0);
+});
 test('malformed settings and linked cards are rejected instead of exposing unfiltered text',async t=>{
  const d=await fixture(t),id=c.encode(['chat','A','one.jsonl']);await fs.writeFile(path.join(d.root,'settings.json'),'{');await assert.rejects(()=>display.load(d,id),{status:422});await fs.unlink(path.join(d.root,'settings.json'));await fs.rename(path.join(d.characters,'A.png'),path.join(d.root,'private.png'));await fs.symlink(path.join(d.root,'private.png'),path.join(d.characters,'A.png'));await assert.rejects(()=>display.load(d,id),{status:403});
 });

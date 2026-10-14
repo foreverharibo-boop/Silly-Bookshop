@@ -29,9 +29,9 @@ test('state directory and auth file symlinks are rejected',async t=>{
     const user=path.join(temp,'user'),outside=path.join(temp,'outside');await fs.mkdir(user);await fs.mkdir(outside);await fs.symlink(outside,path.join(user,c.STATE));await assert.rejects(()=>c.authConfig(user),{status:403});
     await fs.unlink(path.join(user,c.STATE));await c.stateDir(user);const target=path.join(outside,'key');await fs.writeFile(target,'{}');await fs.symlink(target,path.join(user,c.STATE,'auth.json'));await assert.rejects(()=>c.authConfig(user),{status:403});
 });
-test('noncanonical IDs and giant JSONL lines are rejected',()=>{
+test('noncanonical IDs and chats exceeding the total input budget are rejected',()=>{
     const id=c.encode(['group','a.jsonl']);assert.throws(()=>c.decode(id+'='),{status:400});assert.throws(()=>c.decode(id+'\n'),{status:400});
-    assert.throws(()=>c.parseChat(JSON.stringify({mes:'x'.repeat(1024*1024)})),{status:413});
+    assert.throws(()=>c.parseChat(JSON.stringify({mes:'x'.repeat(32*1024*1024)})),{status:413});
 });
 test('repository root loads the server plugin directly',()=>{
     const plugin=require('../..');assert.equal(plugin.info.id,'silly-bookshop');assert.equal(typeof plugin.init,'function');
