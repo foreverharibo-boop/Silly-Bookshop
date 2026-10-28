@@ -3,7 +3,7 @@
   "version": "1.0.3",
   "description": "실리 책방 — private read-only SillyTavern chat reader",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "main": "server/index.cjs",
   "engines": {"node": ">=18"},
   "scripts": {
