@@ -5,7 +5,7 @@ import hashlib,json,re,sys,zipfile,subprocess,xml.etree.ElementTree as ET
 root=Path(__file__).resolve().parents[1]
 subprocess.run(['node',str(root/'scripts/build-renderer.cjs'),'--check'],check=True)
 subprocess.run(['node',str(root/'scripts/sync-offline-reader.cjs'),'--check'],check=True)
-top={'.gitignore','.gitattributes','package.json','setup.cjs','README.md','SECURITY.md','TESTING.md','PUBLISHING.md','CHANGELOG.md','RELEASE_NOTES.md'}
+top={'LICENSE','NOTICE','.gitignore','.gitattributes','package.json','setup.cjs','README.md','SECURITY.md','TESTING.md','PUBLISHING.md','CHANGELOG.md','RELEASE_NOTES.md'}
 trees={'server','scripts','client'}
 android_files={'android/AndroidManifest.xml','android/build.sh'}
 android_trees=('android/src/','android/res/','android/tests/','android/offline/')
